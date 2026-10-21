@@ -2,8 +2,9 @@
 
 import subprocess
 from collections.abc import Generator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from pydantic import BaseModel, ConfigDict
 
@@ -86,4 +87,17 @@ def managed_worktrees(config: RunConfig) -> Generator[CheckoutPair, None, None]:
     worktrees on context exit, including when later setup or the caller fails.
     Preserve the original checkout, its uncommitted files, and unrelated worktrees.
     """
-    raise NotImplementedError("Worktree lifecycle management is not implemented")
+    base_sha = resolve_commit(config, config.base_ref)
+    head_sha = resolve_commit(config, config.head_ref)
+
+    with TemporaryDirectory(prefix="skewguard-") as directory, ExitStack() as cleanup:
+        base = Path(directory) / "base"
+        head = Path(directory) / "head"
+
+        add_worktree(config, base, base_sha)
+        cleanup.callback(remove_worktree, config, base)
+
+        add_worktree(config, head, head_sha)
+        cleanup.callback(remove_worktree, config, head)
+
+        yield CheckoutPair(base=base, head=head, base_sha=base_sha, head_sha=head_sha)
