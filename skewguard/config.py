@@ -15,10 +15,10 @@ class RunConfig(BaseModel):
     """
 
     model_config = ConfigDict(
-        extra="forbid", # reject unexpected fields
-        frozen=True, # cant change after creation
-        str_strip_whitespace=True, # stripe whitespace
-        validate_default=True, # defaults have to be true, such as timeout def = 60s
+        extra="forbid",  # reject unexpected fields
+        frozen=True,  # cant change after creation
+        str_strip_whitespace=True,  # stripe whitespace
+        validate_default=True,  # defaults have to be true, such as timeout def = 60s
     )
 
     repo_path: Path

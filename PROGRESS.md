@@ -4,7 +4,7 @@
 
 | Milestone | Status |
 | --- | --- |
-| 1: execution foundation | In progress: configuration complete; execution types next |
+| 1: execution foundation | In progress: configuration and execution records complete |
 | 2: graph and generation | Not started |
 | 3: comparison, triage, reports, CLI | Not started |
 | 4: benchmark and evaluation | Not started |
@@ -19,7 +19,12 @@
 - Configuration example and validation tests.
 - Ruff, Pyright, and pytest configuration.
 - Development setup documentation.
-- Execution package structure; shared types are pending implementation.
+- Execution package structure and `Cell` identifiers for all four matrix cells.
+- `Outcome` evidence fields with status consistency validation.
+- `CellResult` groups validated outcomes and rejects duplicate scenario IDs
+  within a cell.
+- Evidence tests cover JSON round trips, conflicting status fields, invalid nested
+  results, and duplicate scenario IDs. All 48 tests pass; Ruff and Pyright are clean.
 
 ## Execution design
 
@@ -32,7 +37,6 @@
 
 ## Next
 
-- Define `Cell`, `Outcome`, and `CellResult` in `exec/types.py`.
 - Implement worktree preparation and per-checkout environments.
 - Add disposable PostgreSQL containers and database snapshots.
 - Build the first fixture and deterministic ORM probe matrix.
