@@ -2,12 +2,12 @@
 
 An execution-based deploy-skew verifier for Django migrations.
 
-SkewGuard is being built milestone by milestone. The first working piece is
-`RunConfig`: validated settings for the repository, release references, timeout,
-and probe row limit. The migration executor and CLI are still to come.
+SkewGuard is in early development. The configuration layer validates repository
+paths, release references, timeouts, and probe row limits. The migration executor
+and CLI are not yet implemented.
 
-Start with the [Python setup and RunConfig walkthrough](docs/getting-started.md).
-Track the learning checkpoints and remaining work in [PROGRESS.md](PROGRESS.md).
+See the [development setup](docs/getting-started.md) and
+[project status](PROGRESS.md).
 
 With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed, run
 these commands from the repository root:
