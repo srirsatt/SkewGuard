@@ -24,7 +24,18 @@
 - `CellResult` groups validated outcomes and rejects duplicate scenario IDs
   within a cell.
 - Evidence tests cover JSON round trips, conflicting status fields, invalid nested
-  results, and duplicate scenario IDs. All 48 tests pass; Ruff and Pyright are clean.
+  results, and duplicate scenario IDs. The configuration/evidence suite contains
+  48 passing tests.
+- Git command helpers provide timeouts, revision-to-commit resolution, and detached
+  worktree creation/removal.
+
+## In progress
+
+- `managed_worktrees` has a defined interface and contract; lifecycle orchestration
+  is not yet implemented.
+- Six Git helper tests pass. Six lifecycle tests currently fail at the
+  unimplemented context manager. They cover pinned checkouts, cleanup on errors,
+  and preservation of the original checkout and unrelated worktrees.
 
 ## Execution design
 
