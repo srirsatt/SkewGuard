@@ -4,7 +4,7 @@
 
 | Milestone | Status |
 | --- | --- |
-| 1: execution foundation | In progress: configuration and execution records complete |
+| 1: execution foundation | In progress: configuration, execution records, and isolated checkouts complete |
 | 2: graph and generation | Not started |
 | 3: comparison, triage, reports, CLI | Not started |
 | 4: benchmark and evaluation | Not started |
@@ -24,18 +24,20 @@
 - `CellResult` groups validated outcomes and rejects duplicate scenario IDs
   within a cell.
 - Evidence tests cover JSON round trips, conflicting status fields, invalid nested
-  results, and duplicate scenario IDs. The configuration/evidence suite contains
-  48 passing tests.
+  results, and duplicate scenario IDs.
 - Git command helpers provide timeouts, revision-to-commit resolution, and detached
   worktree creation/removal.
+- `managed_worktrees` pins both revisions before creating separate temporary
+  checkouts and removes successfully created worktrees on normal or exceptional
+  exit, including when setup of the second checkout fails.
+- All 60 tests pass, including 12 Git helper/lifecycle cases covering checkout
+  isolation, cleanup, and preservation of original changes and unrelated worktrees.
+  Ruff lint/format checks and Pyright pass.
 
 ## In progress
 
-- `managed_worktrees` has a defined interface and contract; lifecycle orchestration
-  is not yet implemented.
-- Six Git helper tests pass. Six lifecycle tests currently fail at the
-  unimplemented context manager. They cover pinned checkouts, cleanup on errors,
-  and preservation of the original checkout and unrelated worktrees.
+- The remaining execution foundation covers per-checkout environments,
+  PostgreSQL snapshots, deterministic probes, and the matrix runner.
 
 ## Execution design
 
@@ -48,7 +50,7 @@
 
 ## Next
 
-- Implement worktree preparation and per-checkout environments.
+- Add per-checkout virtual environments.
 - Add disposable PostgreSQL containers and database snapshots.
 - Build the first fixture and deterministic ORM probe matrix.
 - Implement outcome normalization and executor tests.
