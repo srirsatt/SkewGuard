@@ -143,9 +143,12 @@ migration files are copied into head checkouts by integration tests.
 `seed_database` loads a named Django fixture into the supplied sandbox and
 commits the inserted rows. `run_read_probes` launches a worker using the selected
 release's Python and validates its JSON records as `Outcome` objects. The worker
-bootstrap and fixture loading are implemented; `probe_model` in
-`skewguard/exec/_probe_worker.py` remains unimplemented, with a failing test
-covering baseline reads, the rename failure, and the safe nullable addition.
+bootstrap, fixture loading, and `probe_model` in `skewguard/exec/_probe_worker.py`
+are implemented. The read probe observes the model's default ordering, limits
+row count, reads every concrete field, and records query exceptions. Its
+integration test covers baseline reads, the rename failure, and the safe nullable
+addition. These outcomes are execution evidence; verdict comparison and
+reproduction checks are still in development.
 
 ```bash
 SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_shop_probes.py -q
