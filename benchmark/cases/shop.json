@@ -1,0 +1,16 @@
+[
+  {
+    "id": "shop_rename_price",
+    "fixture": "shop",
+    "migration": "shop_rename_price.py",
+    "breaks_deploy_window": true,
+    "breaks_rollback": true
+  },
+  {
+    "id": "shop_add_notes",
+    "fixture": "shop",
+    "migration": "shop_add_notes.py",
+    "breaks_deploy_window": false,
+    "breaks_rollback": false
+  }
+]
