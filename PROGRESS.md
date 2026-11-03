@@ -4,7 +4,7 @@
 
 | Milestone | Status |
 | --- | --- |
-| 1: execution foundation | In progress: configuration, execution records, checkouts, and dependency installation complete |
+| 1: execution foundation | In progress: migrations and fixture seeding complete; first ORM read probe pending |
 | 2: graph and generation | Not started |
 | 3: comparison, triage, reports, CLI | Not started |
 | 4: benchmark and evaluation | Not started |
@@ -57,10 +57,12 @@
 - `clone_database` creates a uniquely named database from `template0` or a named
   source using the admin database, autocommit, and quoted SQL identifiers. It
   returns new connection settings and preserves the cause of PostgreSQL errors.
-- All 121 tests pass with `SKEWGUARD_TEST_POSTGRES=1`, including 12 Git
+- All 122 implemented checks pass with `SKEWGUARD_TEST_POSTGRES=1`, excluding the
+  one pending read-probe test. These include 12 Git
   helper/lifecycle cases, 24 environment cases, 15 database unit cases, and
   3 real PostgreSQL integration cases, 7 migration-input helper cases, and
-  6 real Django migration integration cases. The full run has no skipped tests.
+  6 real Django migration integration cases and the shop fixture case. No tests
+  were skipped; the pending read-probe test was explicitly deselected.
   PostgreSQL integration tests remain opt-in for development without Docker.
   Environment tests exercise real offline virtual environments and local
   fixture wheel installs: different release dependencies, explicit install
@@ -86,14 +88,25 @@
   base/head environments, repeat runs, a renamed column in a copied database,
   missing settings, and a slow migration. Fixtures intentionally configure an
   unusable original database to verify that the sandbox connection is used.
+- The first benchmark fixture is a Django 5.2.19 shop with deterministic product
+  records, `Meta.ordering`, and a plain JSON view using `.values()`. Two labeled
+  case definitions cover a breaking price rename and a safe nullable addition.
+  The fixture integration test verifies seeding, both migrations, and preservation
+  of baseline rows against real PostgreSQL.
+- `seed_database` commits Django fixture inserts. The probe subprocess wrapper
+  validates returned records as `Outcome` objects; its worker runs in the
+  checkout's interpreter and closes connections before returning.
 
 ## In progress
 
 - PostgreSQL connection helpers, container lifecycle, and database cloning are
   implemented and verified against a running Docker engine.
+- `probe_model` is the sole pending core function in the read-probe worker. Its
+  integration test currently fails with `NotImplementedError`; the fixture test
+  passes. A temporary completed copy passed both shop integration tests, but
+  that implementation has not been added to the repository.
 - Django migration execution is implemented and covered by committed regression
-  tests. The next execution work is fixture data, ORM probes, and orchestration
-  of the four-cell matrix.
+  tests. Remaining execution work includes write/ordering probes and the matrix.
 - The remaining execution foundation also covers PostgreSQL snapshots,
   deterministic probes, and the matrix runner.
 
@@ -108,7 +121,8 @@
 
 ## Next
 
-- Build the first benchmark fixture with seed data and deterministic ORM probes.
+- Complete `probe_model` and pass its shop regression test, then add write and
+  explicit ordering probes.
 - Connect worktrees, environments, migrations, snapshots, and probes into the
   four-cell matrix.
 - Implement outcome normalization and executor tests.
@@ -120,3 +134,12 @@
 
 - Finalize the remaining executor interfaces.
 - Use Django 5.2 for the first fixture; retain Django 4.2 execution coverage.
+
+## Initial release scope
+
+- Retain scenario, seed, and triage agents with LangChain, LangGraph orchestration
+  and validation/retry loops, checkpointing/progress, MCP, and the GitHub Action.
+- Retain all four execution cells, reproduction checks, CLI/JSON/Markdown reports,
+  tracing/cost budgets, and a labeled benchmark with committed measured results.
+- Defer the fixer, external OSS apps, expansion to the full case corpus,
+  comprehensive baseline comparisons, and single-agent ablation.
