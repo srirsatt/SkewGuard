@@ -3,6 +3,8 @@
 from secrets import token_urlsafe
 
 import psycopg
+from uuid import uuid4
+from psycopg import sql
 from psycopg.rows import TupleRow
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from testcontainers.community.postgres import PostgresContainer
@@ -86,5 +88,24 @@ def managed_postgres(config: RunConfig) -> Generator[DatabaseConnection, None, N
             raise DatabaseSetupError("couldn't prepare temp PostgreSQL") from error
         
         yield database
+
+
+# clones db with data
+def clone_database(config: RunConfig, server: DatabaseConnection, *, source: str = "template0") -> DatabaseConnection:
+    target = server.model_copy(update={"dbname": f"skewguard_{uuid4().hex}"})
+    admin = server.model_copy(update={"dbname": "postgres"})
+
+    statement = sql.SQL("CREATE DATABASE {} TEMPLATE {}").format(
+        sql.Identifier(target.dbname),
+        sql.Identifier(source),
+    )
+
+    try:
+        with connect_database(config, admin, autocommit=True) as connection:
+            connection.execute(statement)
+    except psycopg.Error as error:
+        raise DatabaseSetupError(f"could not clone database {source!r}") from error
+
+    return target
 
 
