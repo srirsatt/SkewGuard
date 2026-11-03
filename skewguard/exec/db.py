@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from testcontainers.community.postgres import PostgresContainer
 
 from skewguard.config import RunConfig
+from collections.abc import Generator
+from contextlib import ExitStack, contextmanager
 
 POSTGRES_IMAGE = "postgres:16"
 
@@ -57,3 +59,32 @@ def connect_database(
         options=f"-c statement_timeout={config.timeout_seconds * 1000}",
         autocommit=autocommit,
     )
+
+# connect the helpers with managed_postgres() -> return the connection details, connect the db and start it up
+
+@contextmanager
+def managed_postgres(config: RunConfig) -> Generator[DatabaseConnection, None, None]:
+    # start up postgres server and remove on caller exit
+    with ExitStack() as cleanup:
+        try:
+            postgres = make_postgres_container(config)
+            cleanup.callback(postgres.stop)
+            postgres.start()
+
+            database = DatabaseConnection(
+                host=postgres.get_container_host_ip(),
+                port = int(postgres.get_exposed_port(5432)),
+                username = postgres.username,
+                password=SecretStr(postgres.password),
+                dbname=postgres.dbname,
+
+            )
+            with connect_database(config, database) as connection:
+                connection.execute("SELECT 1")
+
+        except Exception as error:
+            raise DatabaseSetupError("couldn't prepare temp PostgreSQL") from error
+        
+        yield database
+
+
