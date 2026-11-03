@@ -30,12 +30,59 @@ def environment_python(venv: Path) -> Path:
     return venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
-def run_uv(config: RunConfig, checkout: Path, *arguments: str) -> str:
+def backend_directory(config: RunConfig, checkout: Path) -> Path:
+    """Find the backend inside a checkout, rejecting missing or escaping paths."""
+    checkout = checkout.resolve()
+    backend = (checkout / config.backend_path).resolve()
+    if not backend.is_relative_to(checkout):
+        raise EnvironmentSetupError("backend_path must stay inside the checkout")
+    if not backend.is_dir():
+        raise EnvironmentSetupError(f"backend directory does not exist: {backend}")
+    return backend
+
+
+def validate_environment(environment: PythonEnvironment) -> None:
+    """Require the virtual environment layout owned by create_environment."""
+    expected = environment.checkout.resolve() / ".skewguard-venv"
+    if environment.venv != expected or environment.venv.is_symlink():
+        raise EnvironmentSetupError("virtual environment must belong to its checkout")
+    if not (environment.venv / "pyvenv.cfg").is_file():
+        raise EnvironmentSetupError("create the virtual environment before installing")
+    if (
+        environment.python != environment_python(environment.venv)
+        or not environment.python.is_file()
+    ):
+        raise EnvironmentSetupError("Python executable must belong to the environment")
+
+
+def run_uv(
+    config: RunConfig,
+    checkout: Path,
+    *arguments: str,
+    env_overrides: dict[str, str] | None = None,
+) -> str:
     """Run uv inside a checkout with bounded execution and captured output."""
+    process_env = os.environ.copy()
+    for name in (
+        "VIRTUAL_ENV",
+        "CONDA_PREFIX",
+        "PYTHONHOME",
+        "PYTHONPATH",
+        "UV_PROJECT_ENVIRONMENT",
+        "UV_PROJECT",
+        "UV_WORKING_DIR",
+        "UV_PYTHON",
+        "UV_SYSTEM_PYTHON",
+        "UV_FROZEN",
+        "UV_LOCKED",
+    ):
+        process_env.pop(name, None)
+    process_env.update(env_overrides or {})
     try:
         result = subprocess.run(
             ["uv", "--no-progress", *arguments],
             cwd=checkout,
+            env=process_env,
             check=True,
             capture_output=True,
             text=True,
