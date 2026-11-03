@@ -51,21 +51,24 @@
 - `DatabaseConnection` records a server/database address and redacts its password.
   Helpers configure a disposable PostgreSQL 16 container and open SQL connections
   with explicit credentials, connection timeouts, and statement timeouts.
-- All 94 tests pass, including 12 Git helper/lifecycle cases, 24 environment
-  cases, and 4 database connection-helper cases. The database tests use mocks;
+- `managed_postgres` starts a disposable server, checks it with `SELECT 1`, and
+  yields connection settings. Cleanup is registered before startup; setup errors
+  preserve their cause, and caller errors propagate without being reclassified.
+- All 100 tests pass, including 12 Git helper/lifecycle cases, 24 environment
+  cases, and 10 database helper/lifecycle cases. The database tests use mocks;
   real PostgreSQL container execution has not been verified.
   Environment tests exercise real offline virtual environments and local
   fixture wheel installs: different release dependencies, explicit install
   targets, backend subdirectories, lock preservation, stale-lock refusal, and
   protection of an existing active environment. Installation tests call the
   public entry point and cover manifest precedence and unsupported layouts.
-  Pyright passes. Ruff reports two line-length violations and formatting
-  differences in `skewguard/exec/envs.py`.
+  Pyright passes. Ruff reports import-order and line-length violations in
+  `skewguard/exec/db.py` and line-length violations in `skewguard/exec/envs.py`.
 
 ## In progress
 
-- PostgreSQL connection and container-construction helpers are implemented;
-  container lifecycle orchestration and database cloning remain to be added.
+- PostgreSQL connection helpers and container lifecycle are implemented;
+  database cloning and live container validation remain to be completed.
 - The remaining execution foundation also covers PostgreSQL snapshots,
   deterministic probes, and the matrix runner.
 
@@ -80,7 +83,7 @@
 
 ## Next
 
-- Add disposable PostgreSQL containers and database snapshots.
+- Validate disposable PostgreSQL containers and add database snapshots.
 - Build the first fixture and deterministic ORM probe matrix.
 - Implement outcome normalization and executor tests.
 - Configure CI and pre-commit checks.
