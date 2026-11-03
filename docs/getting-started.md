@@ -82,6 +82,20 @@ same server. Its default source, `template0`, creates an empty database; pass th
 name of a prepared database to copy its schema and rows. Close connections to the
 source before cloning. Live container and clone-isolation validation is pending.
 
+Start Docker, then run the PostgreSQL integration tests from the repository root:
+
+```bash
+docker version
+SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_db_integration.py -x -q
+```
+
+`docker version` should show both client and server information. The tests start
+temporary containers; the first run downloads the PostgreSQL image if needed.
+They check schema, row, and identity-sequence copying, independence of database
+changes, the idle-source requirement, and cleanup after normal and exceptional
+exit. These tests are skipped by default; when explicitly enabled, an unavailable
+Docker engine fails the run.
+
 ## Development checks
 
 ```bash
