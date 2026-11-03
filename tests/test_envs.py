@@ -22,6 +22,7 @@ from skewguard.exec.envs import (
     backend_directory,
     create_environment,
     environment_python,
+    install_dependencies,
     run_uv,
     validate_environment,
 )
@@ -325,19 +326,7 @@ def test_requirements_installs_use_each_backend_and_explicit_python(
         requirements.write_text(f"./wheels/{wheel.name}\n")
         original_requirements = requirements.read_bytes()
         environment = create_environment(selected, checkout)
-        validate_environment(environment)
-        run_uv(
-            selected,
-            backend_directory(selected, checkout),
-            "pip",
-            "install",
-            "--python",
-            str(environment.python),
-            "--no-python-downloads",
-            "--requirements",
-            str(requirements),
-        )
-        run_uv(selected, backend, "pip", "check", "--python", str(environment.python))
+        install_dependencies(selected, environment)
         assert dependency_version(environment) == version
         assert requirements.read_bytes() == original_requirements
         assert not (backend / ".venv").exists()
@@ -405,19 +394,10 @@ def test_locked_sync_targets_our_venv_and_refuses_stale_metadata(
     monkeypatch.setenv("VIRTUAL_ENV", str(protected_env.venv))
     monkeypatch.setenv("UV_WORKING_DIR", str(protected))
     monkeypatch.setenv("UV_FROZEN", "true")
-    sync_arguments = (
-        "sync",
-        "--locked",
-        "--no-default-groups",
-        "--project",
-        str(backend),
-        "--python",
-        str(environment.python),
-        "--no-python-downloads",
-    )
-    target = {"UV_PROJECT_ENVIRONMENT": str(environment.venv)}
+    requirements = backend / "requirements.txt"
+    requirements.write_text("./missing-wheel.whl\n")
 
-    run_uv(selected, backend, *sync_arguments, env_overrides=target)
+    install_dependencies(selected, environment)
 
     assert dependency_version(environment) == "2.0.0"
     assert dependency_version(protected_env) == "1.0.0"
@@ -429,9 +409,29 @@ def test_locked_sync_targets_our_venv_and_refuses_stale_metadata(
 
     make_dependency_wheel(backend / "wheels", "3.0.0")
     pyproject.write_text(original_project.replace("2.0.0", "3.0.0"))
+    requirements.write_text(f"./wheels/{wheel.name}\n")
     with pytest.raises(EnvironmentSetupError):
-        run_uv(selected, backend, *sync_arguments, env_overrides=target)
+        install_dependencies(selected, environment)
 
     assert lockfile.read_bytes() == original_lock
     assert dependency_version(environment) == "2.0.0"
     assert dependency_version(protected_env) == "1.0.0"
+
+
+@pytest.mark.parametrize(
+    ("manifest", "message"),
+    [
+        (None, "expected uv.lock"),
+        ("pyproject.toml", "expected uv.lock"),
+        ("uv.lock", "requires a pyproject.toml"),
+    ],
+)
+def test_install_dependencies_rejects_unsupported_manifest_layouts(
+    config: RunConfig, offline_uv: None, manifest: str | None, message: str
+) -> None:
+    environment = create_environment(config, config.repo_path)
+    if manifest is not None:
+        (config.repo_path / manifest).write_text("")
+
+    with pytest.raises(EnvironmentSetupError, match=message):
+        install_dependencies(config, environment)
