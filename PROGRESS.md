@@ -15,7 +15,8 @@
 
 - Python 3.12 package layout and uv dependency lockfile.
 - `RunConfig` with required repository/base/head, positive timeout and row limits,
-  absolute repository paths, and rejection of unknown settings.
+  absolute repository paths, a relative backend path, and rejection of unknown
+  settings. Backend paths cannot be absolute or contain parent traversal.
 - Configuration example and validation tests.
 - Ruff, Pyright, and pytest configuration.
 - Development setup documentation.
@@ -36,16 +37,23 @@
 - `create_environment` creates an empty Python 3.12 virtual environment inside a
   checkout, rejects invalid checkouts and existing targets, and verifies that uv
   produced a Python executable.
-- All 72 tests pass, including 12 Git helper/lifecycle cases and 12 environment
-  cases. Environment tests exercise `create_environment` with real offline
-  environments, independent package directories, relative paths, invalid
-  checkouts, existing targets, and missing executables.
+- Backend directory resolution checks each checkout and rejects missing folders
+  or symlinks escaping the checkout. Environment validation checks the expected
+  install target before dependency installation.
+- The uv wrapper clears inherited environment and interpreter selectors and
+  accepts explicit child-process overrides without changing the parent process.
+- All 87 tests pass, including 12 Git helper/lifecycle cases and 21 environment
+  cases. Environment tests exercise real offline virtual environments and local
+  fixture wheel installs: different release dependencies, explicit install
+  targets, backend subdirectories, lock preservation, stale-lock refusal, and
+  protection of an existing active environment.
   Ruff lint/format checks and Pyright pass.
 
 ## In progress
 
-- Per-checkout Python environment creation is implemented; installation of each
-  release's application dependencies remains to be implemented.
+- Per-checkout Python environment creation and dependency-installation helpers
+  are implemented. The installation entry point selecting a release's `uv.lock`
+  or `requirements.txt` remains to be implemented.
 - The remaining execution foundation also covers PostgreSQL snapshots,
   deterministic probes, and the matrix runner.
 
