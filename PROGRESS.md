@@ -4,7 +4,7 @@
 
 | Milestone | Status |
 | --- | --- |
-| 1: execution foundation | In progress: configuration, execution records, and isolated checkouts complete |
+| 1: execution foundation | In progress: configuration, execution records, checkouts, and empty Python environments complete |
 | 2: graph and generation | Not started |
 | 3: comparison, triage, reports, CLI | Not started |
 | 4: benchmark and evaluation | Not started |
@@ -33,15 +33,19 @@
 - `PythonEnvironment` records checkout, virtual environment, and interpreter
   paths. The uv command wrapper captures output, applies the configured timeout,
   and reports command, timeout, and executable errors.
-- All 65 tests pass, including 12 Git helper/lifecycle cases and five environment
-  helper cases. The environment integration test creates two real virtual
-  environments offline and verifies their package directories are independent.
+- `create_environment` creates an empty Python 3.12 virtual environment inside a
+  checkout, rejects invalid checkouts and existing targets, and verifies that uv
+  produced a Python executable.
+- All 72 tests pass, including 12 Git helper/lifecycle cases and 12 environment
+  cases. Environment tests exercise `create_environment` with real offline
+  environments, independent package directories, relative paths, invalid
+  checkouts, existing targets, and missing executables.
   Ruff lint/format checks and Pyright pass.
 
 ## In progress
 
-- Per-checkout environment records and command helpers are available; automatic
-  environment creation and dependency installation remain to be implemented.
+- Per-checkout Python environment creation is implemented; installation of each
+  release's application dependencies remains to be implemented.
 - The remaining execution foundation also covers PostgreSQL snapshots,
   deterministic probes, and the matrix runner.
 
@@ -56,7 +60,7 @@
 
 ## Next
 
-- Implement per-checkout environment creation and dependency installation.
+- Install each checkout's application dependencies into its Python environment.
 - Add disposable PostgreSQL containers and database snapshots.
 - Build the first fixture and deterministic ORM probe matrix.
 - Implement outcome normalization and executor tests.
