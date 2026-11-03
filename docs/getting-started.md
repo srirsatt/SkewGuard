@@ -36,12 +36,20 @@ Add runtime dependencies with `uv add PACKAGE` and development dependencies with
 | `repo_path` | `Path` | Required | Existing directory; home expansion and absolute path resolution |
 | `base_ref` | `str` | Required | Nonblank after trimming surrounding whitespace |
 | `head_ref` | `str` | Required | Nonblank after trimming surrounding whitespace |
+| `backend_path` | `Path` | `.` | Relative path within each checkout; no `..` components |
 | `timeout_seconds` | `int` | `60` | Strict positive integer |
 | `probe_row_limit` | `int` | `10` | Strict positive integer |
 
 Unknown fields are rejected. Instances prevent ordinary field reassignment, and
-defaults are validated. Git repository and reference resolution will be checked
-by the worktree layer. Timeout and row-limit enforcement belong to the executor.
+defaults are validated. The worktree layer checks Git repositories and resolves
+references to commits. The uv wrapper enforces the timeout for environment
+commands; row-limit enforcement belongs to the future probe runner.
+
+Use `backend_path=Path("backend")` when Django lives below the repository root,
+such as alongside a TypeScript frontend. Environment preparation checks that
+the selected directory exists within each checkout, including resolving symlinks.
+Each release's virtual environment remains at `<checkout>/.skewguard-venv`.
+Frontend dependencies are outside the Django executor's scope.
 
 Run the configuration example from the repository root:
 
@@ -61,5 +69,7 @@ uv run ruff format --check .
 uv run pyright
 ```
 
-Tests cover configuration validation and path normalization. Ruff checks lint
-and formatting rules; Pyright performs static type checking.
+Tests cover configuration, execution records, worktree lifecycle, and Python
+environment isolation. Dependency installation tests use local fixture wheels
+with network access disabled. Ruff checks lint and formatting rules; Pyright
+performs static type checking.
