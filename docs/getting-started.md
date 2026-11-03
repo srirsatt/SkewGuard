@@ -133,6 +133,24 @@ The tests install pinned Django 4.2.30 and 5.2.19 releases into temporary virtua
 environments, requiring access to PyPI or an existing uv cache. They exercise
 base/head migrations, database-copy isolation, repeat runs, errors, and timeouts.
 
+## Shop fixture and read probes
+
+The first benchmark app lives in `benchmark/apps/shop/`. It includes product
+seed data and a JSON endpoint. `benchmark/cases/shop.json` records expected
+labels for a column rename and a nullable-column addition; the corresponding
+migration files are copied into head checkouts by integration tests.
+
+`seed_database` loads a named Django fixture into the supplied sandbox and
+commits the inserted rows. `run_read_probes` launches a worker using the selected
+release's Python and validates its JSON records as `Outcome` objects. The worker
+bootstrap and fixture loading are implemented; `probe_model` in
+`skewguard/exec/_probe_worker.py` remains unimplemented, with a failing test
+covering baseline reads, the rename failure, and the safe nullable addition.
+
+```bash
+SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_shop_probes.py -q
+```
+
 ## Development checks
 
 ```bash
