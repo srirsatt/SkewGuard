@@ -4,7 +4,7 @@
 
 | Milestone | Status |
 | --- | --- |
-| 1: execution foundation | In progress: configuration, execution records, checkouts, and empty Python environments complete |
+| 1: execution foundation | In progress: configuration, execution records, checkouts, and dependency installation complete |
 | 2: graph and generation | Not started |
 | 3: comparison, triage, reports, CLI | Not started |
 | 4: benchmark and evaluation | Not started |
@@ -42,18 +42,21 @@
   install target before dependency installation.
 - The uv wrapper clears inherited environment and interpreter selectors and
   accepts explicit child-process overrides without changing the parent process.
-- All 87 tests pass, including 12 Git helper/lifecycle cases and 21 environment
+- `install_dependencies` selects `uv.lock` with `pyproject.toml`, otherwise
+  `requirements.txt`, installs into the checkout's environment, and checks
+  installed dependency compatibility. A stale lock fails without fallback or
+  lockfile rewriting; unsupported manifest layouts produce a setup error.
+- All 90 tests pass, including 12 Git helper/lifecycle cases and 24 environment
   cases. Environment tests exercise real offline virtual environments and local
   fixture wheel installs: different release dependencies, explicit install
   targets, backend subdirectories, lock preservation, stale-lock refusal, and
-  protection of an existing active environment.
-  Ruff lint/format checks and Pyright pass.
+  protection of an existing active environment. Installation tests call the
+  public entry point and cover manifest precedence and unsupported layouts.
+  Pyright passes. Ruff reports two line-length violations and formatting
+  differences in `skewguard/exec/envs.py`.
 
 ## In progress
 
-- Per-checkout Python environment creation and dependency-installation helpers
-  are implemented. The installation entry point selecting a release's `uv.lock`
-  or `requirements.txt` remains to be implemented.
 - The remaining execution foundation also covers PostgreSQL snapshots,
   deterministic probes, and the matrix runner.
 
@@ -68,7 +71,6 @@
 
 ## Next
 
-- Install each checkout's application dependencies into its Python environment.
 - Add disposable PostgreSQL containers and database snapshots.
 - Build the first fixture and deterministic ORM probe matrix.
 - Implement outcome normalization and executor tests.
