@@ -75,7 +75,9 @@ representation and JSON output.
 `timeout_seconds` applies to Docker API requests, PostgreSQL connections, and
 individual SQL statements. Testcontainers manages its own readiness wait; this
 is not a single deadline covering an image download and the entire startup.
-Container lifecycle orchestration and database snapshots are still in development.
+`managed_postgres` starts the container, checks a SQL connection, and removes the
+container when its context exits, including after partial startup failures.
+Database snapshots are still in development; live container validation is pending.
 
 ## Development checks
 
