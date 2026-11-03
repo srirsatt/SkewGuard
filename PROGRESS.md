@@ -57,10 +57,10 @@
 - `clone_database` creates a uniquely named database from `template0` or a named
   source using the admin database, autocommit, and quoted SQL identifiers. It
   returns new connection settings and preserves the cause of PostgreSQL errors.
-- All 115 tests pass with `SKEWGUARD_TEST_POSTGRES=1`, including 12 Git
+- All 121 tests pass with `SKEWGUARD_TEST_POSTGRES=1`, including 12 Git
   helper/lifecycle cases, 24 environment cases, 15 database unit cases, and
-  3 real PostgreSQL integration cases and 7 migration-input helper cases. The
-  full run has no skipped tests.
+  3 real PostgreSQL integration cases, 7 migration-input helper cases, and
+  6 real Django migration integration cases. The full run has no skipped tests.
   PostgreSQL integration tests remain opt-in for development without Docker.
   Environment tests exercise real offline virtual environments and local
   fixture wheel installs: different release dependencies, explicit install
@@ -68,7 +68,8 @@
   protection of an existing active environment. Installation tests call the
   public entry point and cover manifest precedence and unsupported layouts.
   Pyright passes. Ruff reports import-order and line-length violations in
-  `skewguard/exec/db.py` and line-length violations in `skewguard/exec/envs.py`.
+  `skewguard/exec/db.py` and `skewguard/exec/runner.py`, and line-length violations
+  in `skewguard/exec/envs.py`.
 - Opt-in PostgreSQL integration tests exercise schema/data/sequence copying,
   independent mutations, rejection of active source connections, and cleanup
   after success or caller failure. All three passed against Docker Desktop and
@@ -78,16 +79,21 @@
   stdin, validate dotted settings-module names, discard inherited Python
   selectors, and redact the sandbox password from returned logs. Seven tests
   cover these boundaries.
+- `run_migrations` boots Django using the selected checkout's interpreter and
+  settings, replaces the default connection before application setup, applies
+  migrations, closes connections, and captures output with a subprocess timeout.
+  Six committed integration cases exercise Django 4.2.30 and 5.2.19, separate
+  base/head environments, repeat runs, a renamed column in a copied database,
+  missing settings, and a slow migration. Fixtures intentionally configure an
+  unusable original database to verify that the sandbox connection is used.
 
 ## In progress
 
 - PostgreSQL connection helpers, container lifecycle, and database cloning are
   implemented and verified against a running Docker engine.
-- Django bootstrap and the migration subprocess entry point are prepared but
-  not yet added. The proposed code passed temporary PostgreSQL checks with
-  Django 4.2.30 and 5.2.19, including repeat runs, a renamed column in a copied
-  database, child failure reporting, and timeout enforcement. Those checks are
-  not yet part of the committed regression suite.
+- Django migration execution is implemented and covered by committed regression
+  tests. The next execution work is fixture data, ORM probes, and orchestration
+  of the four-cell matrix.
 - The remaining execution foundation also covers PostgreSQL snapshots,
   deterministic probes, and the matrix runner.
 
@@ -102,9 +108,9 @@
 
 ## Next
 
-- Add the prepared Django bootstrap and migration runner to `exec/runner.py`,
-  then connect integration tests to that entry point.
-- Build the first fixture and deterministic ORM probe matrix.
+- Build the first benchmark fixture with seed data and deterministic ORM probes.
+- Connect worktrees, environments, migrations, snapshots, and probes into the
+  four-cell matrix.
 - Implement outcome normalization and executor tests.
 - Configure CI and pre-commit checks.
 - Verify and pin agent/MCP dependencies and record the selected APIs in
