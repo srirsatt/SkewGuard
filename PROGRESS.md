@@ -30,14 +30,20 @@
 - `managed_worktrees` pins both revisions before creating separate temporary
   checkouts and removes successfully created worktrees on normal or exceptional
   exit, including when setup of the second checkout fails.
-- All 60 tests pass, including 12 Git helper/lifecycle cases covering checkout
-  isolation, cleanup, and preservation of original changes and unrelated worktrees.
+- `PythonEnvironment` records checkout, virtual environment, and interpreter
+  paths. The uv command wrapper captures output, applies the configured timeout,
+  and reports command, timeout, and executable errors.
+- All 65 tests pass, including 12 Git helper/lifecycle cases and five environment
+  helper cases. The environment integration test creates two real virtual
+  environments offline and verifies their package directories are independent.
   Ruff lint/format checks and Pyright pass.
 
 ## In progress
 
-- The remaining execution foundation covers per-checkout environments,
-  PostgreSQL snapshots, deterministic probes, and the matrix runner.
+- Per-checkout environment records and command helpers are available; automatic
+  environment creation and dependency installation remain to be implemented.
+- The remaining execution foundation also covers PostgreSQL snapshots,
+  deterministic probes, and the matrix runner.
 
 ## Execution design
 
@@ -50,7 +56,7 @@
 
 ## Next
 
-- Add per-checkout virtual environments.
+- Implement per-checkout environment creation and dependency installation.
 - Add disposable PostgreSQL containers and database snapshots.
 - Build the first fixture and deterministic ORM probe matrix.
 - Implement outcome normalization and executor tests.
