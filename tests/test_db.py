@@ -2,15 +2,18 @@
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from uuid import UUID
 
 import psycopg
 import pytest
+from psycopg import sql
 from pydantic import SecretStr
 
 from skewguard.config import RunConfig
 from skewguard.exec.db import (
     DatabaseConnection,
     DatabaseSetupError,
+    clone_database,
     connect_database,
     managed_postgres,
 )
@@ -154,3 +157,66 @@ def test_managed_postgres_reports_container_construction_errors(tmp_path: Path) 
                 pytest.fail("no container was constructed")
 
     assert raised.value.__cause__ is failure
+
+
+@pytest.mark.parametrize(
+    ("source", "quoted_source"),
+    [
+        (None, '"template0"'),
+        ("baseline", '"baseline"'),
+        ('baseline "quoted"', '"baseline ""quoted"""'),
+    ],
+)
+def test_clone_database_creates_a_named_copy_using_the_admin_database(
+    tmp_path: Path,
+    database: DatabaseConnection,
+    source: str | None,
+    quoted_source: str,
+) -> None:
+    config = RunConfig(repo_path=tmp_path, base_ref="main", head_ref="HEAD")
+    with patch("skewguard.exec.db.connect_database", autospec=True) as connect:
+        if source is None:
+            target = clone_database(config, database)
+        else:
+            target = clone_database(config, database, source=source)
+
+        assert target is not database
+        assert database.dbname == "baseline"
+        assert target.host == database.host
+        assert target.port == database.port
+        assert target.username == database.username
+        assert target.password == database.password
+        assert target.dbname.startswith("skewguard_")
+        assert len(target.dbname) <= 63
+        assert UUID(target.dbname.removeprefix("skewguard_")).version == 4
+        connect.assert_called_once_with(
+            config, database.model_copy(update={"dbname": "postgres"}), autocommit=True
+        )
+        execute = connect.return_value.__enter__.return_value.execute
+        execute.assert_called_once()
+        statement = execute.call_args.args[0]
+        assert isinstance(statement, sql.Composable)
+        assert statement.as_string() == (
+            f'CREATE DATABASE "{target.dbname}" TEMPLATE {quoted_source}'
+        )
+        connect.return_value.__exit__.assert_called_once()
+
+
+@pytest.mark.parametrize("stage", ["connect", "execute"])
+def test_clone_database_preserves_database_failure_evidence(
+    tmp_path: Path, database: DatabaseConnection, stage: str
+) -> None:
+    config = RunConfig(repo_path=tmp_path, base_ref="main", head_ref="HEAD")
+    failure = psycopg.OperationalError("database unavailable")
+    with patch("skewguard.exec.db.connect_database", autospec=True) as connect:
+        if stage == "connect":
+            connect.side_effect = failure
+        else:
+            connect.return_value.__enter__.return_value.execute.side_effect = failure
+
+        with pytest.raises(DatabaseSetupError, match="baseline") as raised:
+            clone_database(config, database, source="baseline")
+
+        assert raised.value.__cause__ is failure
+        if stage == "execute":
+            connect.return_value.__exit__.assert_called_once()
