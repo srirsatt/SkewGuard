@@ -9,7 +9,8 @@ class RunConfig(BaseModel):
     """Describe one run before preparing worktrees or starting a database.
 
     The repository must be an existing local directory. Git repository and
-    reference checks belong to the future worktree preparation step.
+    reference checks belong to the worktree preparation step. The backend path
+    is relative to each checkout and is checked there during preparation.
     Numeric limits require actual integers; interfaces parse textual arguments
     before constructing this model.
     """
@@ -24,6 +25,7 @@ class RunConfig(BaseModel):
     repo_path: Path
     base_ref: str = Field(min_length=1)
     head_ref: str = Field(min_length=1)
+    backend_path: Path = Path(".")
     timeout_seconds: int = Field(default=60, gt=0, strict=True)
     probe_row_limit: int = Field(default=10, gt=0, strict=True)
 
@@ -35,3 +37,11 @@ class RunConfig(BaseModel):
         if not directory.is_dir():
             raise ValueError("repo_path must point to an existing directory")
         return directory
+
+    @field_validator("backend_path")
+    @classmethod
+    def validate_backend_path(cls, value: Path) -> Path:
+        """Keep backend selection relative to each checked-out release."""
+        if value.is_absolute() or ".." in value.parts:
+            raise ValueError("backend_path must be relative without '..' components")
+        return value
