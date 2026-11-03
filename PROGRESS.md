@@ -46,8 +46,15 @@
   `requirements.txt`, installs into the checkout's environment, and checks
   installed dependency compatibility. A stale lock fails without fallback or
   lockfile rewriting; unsupported manifest layouts produce a setup error.
-- All 90 tests pass, including 12 Git helper/lifecycle cases and 24 environment
-  cases. Environment tests exercise real offline virtual environments and local
+- Testcontainers 4.15.0 and Psycopg 3.3.7 are pinned. The PostgreSQL helper uses
+  the current `testcontainers.community.postgres` import.
+- `DatabaseConnection` records a server/database address and redacts its password.
+  Helpers configure a disposable PostgreSQL 16 container and open SQL connections
+  with explicit credentials, connection timeouts, and statement timeouts.
+- All 94 tests pass, including 12 Git helper/lifecycle cases, 24 environment
+  cases, and 4 database connection-helper cases. The database tests use mocks;
+  real PostgreSQL container execution has not been verified.
+  Environment tests exercise real offline virtual environments and local
   fixture wheel installs: different release dependencies, explicit install
   targets, backend subdirectories, lock preservation, stale-lock refusal, and
   protection of an existing active environment. Installation tests call the
@@ -57,6 +64,8 @@
 
 ## In progress
 
+- PostgreSQL connection and container-construction helpers are implemented;
+  container lifecycle orchestration and database cloning remain to be added.
 - The remaining execution foundation also covers PostgreSQL snapshots,
   deterministic probes, and the matrix runner.
 
@@ -81,4 +90,6 @@
 ## Open questions
 
 - Finalize the remaining executor interfaces.
-- Confirm Docker availability and select the first fixture's Django version.
+- A Docker daemon check returned connection refused, and the Docker CLI is not
+  on PATH. Start or install a Docker-compatible engine before live container tests.
+- Select the first fixture's Django version.
