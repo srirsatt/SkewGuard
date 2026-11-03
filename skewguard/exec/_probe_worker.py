@@ -15,7 +15,34 @@ def probe_model(model_label: str, row_limit: int) -> dict[str, object]:
     exception type/message and whether it is a Django IntegrityError. Reject
     nonpositive row limits. Preserve the model's declared default ordering.
     """
-    raise NotImplementedError("model read probe is not implemented")
+    if row_limit <= 0:
+        raise ValueError("row_limit must be positive")
+
+    scenario_id = f"orm:{model_label}:read"
+
+    try:
+        model = import_module("django.apps").apps.get_model(model_label)
+        fields = [field.attname for field in model._meta.concrete_fields]
+
+        rows: list[dict[str, object]] = []
+        for instance in model._default_manager.all()[:row_limit]:
+            rows.append({name: getattr(instance, name) for name in fields})
+
+        return {
+            "scenario_id": scenario_id,
+            "status": "ok",
+            "body": rows,
+        }
+
+    except Exception as error:
+        integrity_error = import_module("django.db").IntegrityError
+        return {
+            "scenario_id": scenario_id,
+            "status": "exception",
+            "exception_type": type(error).__name__,
+            "exception_message": str(error),
+            "integrity_error": isinstance(error, integrity_error),
+        }
 
 
 def main() -> None:
