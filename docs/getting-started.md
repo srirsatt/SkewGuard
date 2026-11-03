@@ -60,6 +60,23 @@ uv run python examples/run_config.py
 The example prints a JSON configuration using the current directory, `main`, and
 `HEAD`. It does not require Docker or API keys.
 
+## PostgreSQL preparation
+
+Database preparation uses Testcontainers to run a disposable PostgreSQL server
+and Psycopg to connect to it. Both Python dependencies are installed by `uv sync`.
+A running Docker-compatible engine is also required for container tests. On macOS,
+see the [Docker Desktop installation guide](https://docs.docker.com/desktop/setup/install/mac-install/).
+
+The container helper selects `postgres:16` and generates a password for each run.
+This tag pins the major version, not an immutable image; benchmark runs will need
+to record or pin the image digest. Connection settings hide passwords in their
+representation and JSON output.
+
+`timeout_seconds` applies to Docker API requests, PostgreSQL connections, and
+individual SQL statements. Testcontainers manages its own readiness wait; this
+is not a single deadline covering an image download and the entire startup.
+Container lifecycle orchestration and database snapshots are still in development.
+
 ## Development checks
 
 ```bash
