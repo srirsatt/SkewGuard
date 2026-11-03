@@ -23,6 +23,7 @@ def test_relative_repository_stays_stable_after_changing_directory(
     assert config.repo_path == repository.resolve()
     assert config.base_ref == "main"
     assert config.head_ref == "HEAD"
+    assert config.backend_path == Path(".")
     assert config.timeout_seconds == 60
     assert config.probe_row_limit == 10
     assert RunConfig.model_validate_json(config.model_dump_json()) == config
@@ -93,3 +94,40 @@ def test_validated_configuration_cannot_be_changed_mid_run(tmp_path: Path) -> No
 
     with pytest.raises(ValidationError, match="frozen"):
         config.timeout_seconds = -1
+
+
+@pytest.mark.parametrize("backend", [".", "backend", "services/backend"])
+def test_backend_path_can_select_a_relative_project(
+    tmp_path: Path, backend: str
+) -> None:
+    config = RunConfig.model_validate(
+        {
+            "repo_path": tmp_path,
+            "base_ref": "main",
+            "head_ref": "HEAD",
+            "backend_path": backend,
+        }
+    )
+
+    assert config.backend_path == Path(backend)
+
+
+@pytest.mark.parametrize("backend", ["../other", "backend/../../other"])
+def test_backend_path_rejects_parent_traversal(tmp_path: Path, backend: str) -> None:
+    with pytest.raises(ValidationError, match="backend_path"):
+        RunConfig(
+            repo_path=tmp_path,
+            base_ref="main",
+            head_ref="HEAD",
+            backend_path=Path(backend),
+        )
+
+
+def test_backend_path_rejects_absolute_paths(tmp_path: Path) -> None:
+    with pytest.raises(ValidationError, match="backend_path"):
+        RunConfig(
+            repo_path=tmp_path,
+            base_ref="main",
+            head_ref="HEAD",
+            backend_path=tmp_path,
+        )
