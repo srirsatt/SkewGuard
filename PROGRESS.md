@@ -58,8 +58,9 @@
   source using the admin database, autocommit, and quoted SQL identifiers. It
   returns new connection settings and preserves the cause of PostgreSQL errors.
 - All 105 tests pass, including 12 Git helper/lifecycle cases, 24 environment
-  cases, and 15 database helper/lifecycle/cloning cases. The database tests use mocks;
-  real PostgreSQL container execution has not been verified.
+  cases, and 15 database helper/lifecycle/cloning cases. Three additional Docker
+  integration tests are skipped unless `SKEWGUARD_TEST_POSTGRES=1` is set. The
+  passing database tests use mocks; real PostgreSQL execution remains unverified.
   Environment tests exercise real offline virtual environments and local
   fixture wheel installs: different release dependencies, explicit install
   targets, backend subdirectories, lock preservation, stale-lock refusal, and
@@ -67,6 +68,10 @@
   public entry point and cover manifest precedence and unsupported layouts.
   Pyright passes. Ruff reports import-order and line-length violations in
   `skewguard/exec/db.py` and line-length violations in `skewguard/exec/envs.py`.
+- Opt-in PostgreSQL integration tests exercise schema/data/sequence copying,
+  independent mutations, rejection of active source connections, and cleanup
+  after success or caller failure. Explicitly enabled tests fail if Docker is
+  unavailable; they do not silently skip that failure.
 
 ## In progress
 
