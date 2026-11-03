@@ -132,3 +132,35 @@ def create_environment(config: RunConfig, checkout: Path) -> PythonEnvironment:
         raise EnvironmentSetupError(f"uv didn't create a python executable: {python}")
 
     return PythonEnvironment(checkout=checkout, venv=venv, python=python)
+
+def install_dependencies(config: RunConfig, environment: PythonEnvironment) -> None:
+    # install all backend dependencies once found
+
+    validate_environment(environment)
+    backend = backend_directory(config, environment.checkout) # find backend
+
+    lockfile = backend / "uv.lock"
+    pyproject = backend / "pyproject.toml"
+    requirements = backend / "requirements.txt"
+
+    if lockfile.is_file():
+        if not pyproject.is_file():
+            raise EnvironmentSetupError("uv.lock requires a pyproject.toml beside it")
+    
+        run_uv(config, backend, "sync", "--locked", "--no-default-groups", "--project", str(backend), "--python", str(environment.python), "--no-python-downloads", env_overrides={"UV_PROJECT_ENVIRONMENT": str(environment.venv)})
+    elif requirements.is_file():
+        run_uv(
+            config,
+            backend,
+            "pip",
+            "install",
+            "--python",
+            str(environment.python),
+            "--no-python-downloads",
+            "--requirements",
+            str(requirements),
+        )
+    else:
+        raise EnvironmentSetupError(f"expected uv.lock with pyproject.toml or requirements.txt in {backend}")
+
+    run_uv(config, backend, "pip", "check", "--python", str(environment.python))
