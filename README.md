@@ -4,8 +4,9 @@ An execution-based deploy-skew verifier for Django migrations.
 
 SkewGuard is in early development. Configuration, isolated Git checkouts and
 Python environments, PostgreSQL database copying, and Django migration execution
-are implemented. The first shop fixture and seed-data loader are available;
-ORM probes, matrix orchestration, agents, and the CLI are in development.
+are implemented. The shop fixture, seed-data loader, and first ORM read probe
+are available. Write probes, matrix orchestration, agents, and the CLI are in
+development.
 
 See the [development setup](docs/getting-started.md) and
 [project status](PROGRESS.md).
