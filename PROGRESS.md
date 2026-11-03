@@ -57,10 +57,10 @@
 - `clone_database` creates a uniquely named database from `template0` or a named
   source using the admin database, autocommit, and quoted SQL identifiers. It
   returns new connection settings and preserves the cause of PostgreSQL errors.
-- All 105 tests pass, including 12 Git helper/lifecycle cases, 24 environment
-  cases, and 15 database helper/lifecycle/cloning cases. Three additional Docker
-  integration tests are skipped unless `SKEWGUARD_TEST_POSTGRES=1` is set. The
-  passing database tests use mocks; real PostgreSQL execution remains unverified.
+- All 108 tests pass with `SKEWGUARD_TEST_POSTGRES=1`, including 12 Git
+  helper/lifecycle cases, 24 environment cases, 15 database unit cases, and
+  3 real PostgreSQL integration cases. The full run has no skipped tests.
+  PostgreSQL integration tests remain opt-in for development without Docker.
   Environment tests exercise real offline virtual environments and local
   fixture wheel installs: different release dependencies, explicit install
   targets, backend subdirectories, lock preservation, stale-lock refusal, and
@@ -70,14 +70,14 @@
   `skewguard/exec/db.py` and line-length violations in `skewguard/exec/envs.py`.
 - Opt-in PostgreSQL integration tests exercise schema/data/sequence copying,
   independent mutations, rejection of active source connections, and cleanup
-  after success or caller failure. Explicitly enabled tests fail if Docker is
-  unavailable; they do not silently skip that failure.
+  after success or caller failure. All three passed against Docker Desktop and
+  the `postgres:16` image. Explicitly enabled tests fail if Docker is unavailable;
+  they do not silently skip that failure.
 
 ## In progress
 
 - PostgreSQL connection helpers, container lifecycle, and database cloning are
-  implemented. Live startup, schema/data copying, and clone isolation validation
-  remain to be completed against a running Docker engine.
+  implemented and verified against a running Docker engine.
 - The remaining execution foundation also covers PostgreSQL snapshots,
   deterministic probes, and the matrix runner.
 
@@ -92,7 +92,8 @@
 
 ## Next
 
-- Validate disposable PostgreSQL containers and database clone isolation.
+- Connect the checkout environments and database settings to a Django migration
+  runner, then build the first fixture.
 - Build the first fixture and deterministic ORM probe matrix.
 - Implement outcome normalization and executor tests.
 - Configure CI and pre-commit checks.
@@ -102,6 +103,4 @@
 ## Open questions
 
 - Finalize the remaining executor interfaces.
-- A Docker daemon check returned connection refused, and the Docker CLI is not
-  on PATH. Start or install a Docker-compatible engine before live container tests.
 - Select the first fixture's Django version.
