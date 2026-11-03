@@ -77,7 +77,10 @@ individual SQL statements. Testcontainers manages its own readiness wait; this
 is not a single deadline covering an image download and the entire startup.
 `managed_postgres` starts the container, checks a SQL connection, and removes the
 container when its context exits, including after partial startup failures.
-Database snapshots are still in development; live container validation is pending.
+`clone_database` copies an idle database into a uniquely named database on the
+same server. Its default source, `template0`, creates an empty database; pass the
+name of a prepared database to copy its schema and rows. Close connections to the
+source before cloning. Live container and clone-isolation validation is pending.
 
 ## Development checks
 
