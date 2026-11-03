@@ -4,7 +4,7 @@
 
 | Milestone | Status |
 | --- | --- |
-| 1: execution foundation | In progress: migrations and fixture seeding complete; first ORM read probe pending |
+| 1: execution foundation | In progress: migrations, fixture seeding, and first ORM read probe complete |
 | 2: graph and generation | Not started |
 | 3: comparison, triage, reports, CLI | Not started |
 | 4: benchmark and evaluation | Not started |
@@ -57,12 +57,11 @@
 - `clone_database` creates a uniquely named database from `template0` or a named
   source using the admin database, autocommit, and quoted SQL identifiers. It
   returns new connection settings and preserves the cause of PostgreSQL errors.
-- All 122 implemented checks pass with `SKEWGUARD_TEST_POSTGRES=1`, excluding the
-  one pending read-probe test. These include 12 Git
+- All 123 checks pass with `SKEWGUARD_TEST_POSTGRES=1`. These include 12 Git
   helper/lifecycle cases, 24 environment cases, 15 database unit cases, and
   3 real PostgreSQL integration cases, 7 migration-input helper cases, and
-  6 real Django migration integration cases and the shop fixture case. No tests
-  were skipped; the pending read-probe test was explicitly deselected.
+  6 real Django migration integration cases, the shop fixture case, and its
+  read-probe compatibility case. No tests were skipped or deselected.
   PostgreSQL integration tests remain opt-in for development without Docker.
   Environment tests exercise real offline virtual environments and local
   fixture wheel installs: different release dependencies, explicit install
@@ -96,15 +95,16 @@
 - `seed_database` commits Django fixture inserts. The probe subprocess wrapper
   validates returned records as `Outcome` objects; its worker runs in the
   checkout's interpreter and closes connections before returning.
+- `probe_model` reads bounded rows and every concrete field using the selected
+  release's model manager, preserves default ordering, and records exception
+  type/message and integrity-error evidence. The shop regression test verifies
+  baseline success, an old-code read failure after the rename, new-code success,
+  and compatibility of the nullable-field addition.
 
 ## In progress
 
 - PostgreSQL connection helpers, container lifecycle, and database cloning are
   implemented and verified against a running Docker engine.
-- `probe_model` is the sole pending core function in the read-probe worker. Its
-  integration test currently fails with `NotImplementedError`; the fixture test
-  passes. A temporary completed copy passed both shop integration tests, but
-  that implementation has not been added to the repository.
 - Django migration execution is implemented and covered by committed regression
   tests. Remaining execution work includes write/ordering probes and the matrix.
 - The remaining execution foundation also covers PostgreSQL snapshots,
@@ -121,8 +121,7 @@
 
 ## Next
 
-- Complete `probe_model` and pass its shop regression test, then add write and
-  explicit ordering probes.
+- Add write and explicit ordering probes.
 - Connect worktrees, environments, migrations, snapshots, and probes into the
   four-cell matrix.
 - Implement outcome normalization and executor tests.
