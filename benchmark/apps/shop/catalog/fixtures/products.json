@@ -1,0 +1,12 @@
+[
+  {
+    "model": "catalog.product",
+    "pk": 1,
+    "fields": {"sku": "NOTEBOOK", "name": "Notebook", "price": 20, "stock": 12}
+  },
+  {
+    "model": "catalog.product",
+    "pk": 2,
+    "fields": {"sku": "PEN", "name": "Pen", "price": 5, "stock": 30}
+  }
+]
