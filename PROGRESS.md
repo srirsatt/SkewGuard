@@ -54,8 +54,11 @@
 - `managed_postgres` starts a disposable server, checks it with `SELECT 1`, and
   yields connection settings. Cleanup is registered before startup; setup errors
   preserve their cause, and caller errors propagate without being reclassified.
-- All 100 tests pass, including 12 Git helper/lifecycle cases, 24 environment
-  cases, and 10 database helper/lifecycle cases. The database tests use mocks;
+- `clone_database` creates a uniquely named database from `template0` or a named
+  source using the admin database, autocommit, and quoted SQL identifiers. It
+  returns new connection settings and preserves the cause of PostgreSQL errors.
+- All 105 tests pass, including 12 Git helper/lifecycle cases, 24 environment
+  cases, and 15 database helper/lifecycle/cloning cases. The database tests use mocks;
   real PostgreSQL container execution has not been verified.
   Environment tests exercise real offline virtual environments and local
   fixture wheel installs: different release dependencies, explicit install
@@ -67,8 +70,9 @@
 
 ## In progress
 
-- PostgreSQL connection helpers and container lifecycle are implemented;
-  database cloning and live container validation remain to be completed.
+- PostgreSQL connection helpers, container lifecycle, and database cloning are
+  implemented. Live startup, schema/data copying, and clone isolation validation
+  remain to be completed against a running Docker engine.
 - The remaining execution foundation also covers PostgreSQL snapshots,
   deterministic probes, and the matrix runner.
 
@@ -83,7 +87,7 @@
 
 ## Next
 
-- Validate disposable PostgreSQL containers and add database snapshots.
+- Validate disposable PostgreSQL containers and database clone isolation.
 - Build the first fixture and deterministic ORM probe matrix.
 - Implement outcome normalization and executor tests.
 - Configure CI and pre-commit checks.
