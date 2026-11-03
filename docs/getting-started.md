@@ -105,6 +105,22 @@ shell, then run pytest separately. To include the Docker tests in the full suite
 SKEWGUARD_TEST_POSTGRES=1 uv run pytest -q
 ```
 
+## Django migration runner preparation
+
+The runner will receive an explicit settings-module name such as `shop.settings`.
+It uses the selected checkout's Python and backend directory; Django belongs to
+that release's dependencies and is not imported into the SkewGuard process.
+
+Migration input helpers construct the sandbox `DATABASES` configuration and send
+credentials through stdin. The prepared bootstrap will load project settings,
+replace the database connection before `django.setup()`, and call Django's
+`migrate` command. The initial runner supports one `default` database without
+database routers. Projects must supply any other settings/environment values
+needed at startup. Custom startup work in `manage.py` is not executed.
+
+The bootstrap and subprocess entry point are not yet implemented in the package.
+This stage prepares the schema; seed data and ORM probes come afterward.
+
 ## Development checks
 
 ```bash
