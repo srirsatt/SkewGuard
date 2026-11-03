@@ -1,19 +1,19 @@
-"""Check uv command failures and independent Python environment behavior."""
+"""Check environment creation, existing-path protection, and package isolation."""
 
 import json
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 from typing import Never
 
 import pytest
 
 from skewguard.config import RunConfig
+from skewguard.exec import envs
 from skewguard.exec.envs import (
     EnvironmentSetupError,
     PythonEnvironment,
-    environment_python,
+    create_environment,
     run_uv,
 )
 
@@ -83,7 +83,7 @@ def run_python(environment: PythonEnvironment, source: str) -> str:
     ).stdout.strip()
 
 
-def test_uv_creates_environments_with_separate_package_directories(
+def test_create_environment_produces_isolated_python_312_environments(
     config: RunConfig, offline_uv: None
 ) -> None:
     environments: list[PythonEnvironment] = []
@@ -92,20 +92,9 @@ def test_uv_creates_environments_with_separate_package_directories(
         checkout = config.repo_path / release
         checkout.mkdir()
         venv = checkout / ".skewguard-venv"
-        run_uv(
-            config,
-            checkout,
-            "venv",
-            "--no-project",
-            "--no-config",
-            "--no-python-downloads",
-            "--python",
-            sys.executable,
-            str(venv),
-        )
-        environment = PythonEnvironment(
-            checkout=checkout, venv=venv, python=environment_python(venv)
-        )
+        environment = create_environment(config, checkout)
+        assert environment.checkout == checkout
+        assert environment.venv == venv
         assert environment.python.is_file()
         assert (
             Path(run_python(environment, "import os; print(os.getcwd())")) == checkout
@@ -113,11 +102,14 @@ def test_uv_creates_environments_with_separate_package_directories(
         prefixes = json.loads(
             run_python(
                 environment,
-                "import json, sys; print(json.dumps([sys.prefix, sys.base_prefix]))",
+                "import json, sys; "
+                "print(json.dumps([sys.prefix, sys.base_prefix, "
+                "list(sys.version_info[:2])]))",
             )
         )
         assert Path(prefixes[0]) == venv
         assert prefixes[0] != prefixes[1]
+        assert prefixes[2] == [3, 12]
         environments.append(environment)
 
     base, head = environments
@@ -132,3 +124,78 @@ def test_uv_creates_environments_with_separate_package_directories(
     )
     assert run_python(base, find_marker) == "True"
     assert run_python(head, find_marker) == "False"
+
+
+def test_create_environment_resolves_relative_checkout_paths(
+    config: RunConfig, offline_uv: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = config.repo_path / "old release"
+    checkout.mkdir()
+    monkeypatch.chdir(config.repo_path)
+
+    environment = create_environment(config, Path("old release"))
+
+    assert environment.checkout == checkout
+    assert environment.venv == checkout / ".skewguard-venv"
+    assert environment.python.is_absolute()
+    assert environment.python.is_file()
+
+
+@pytest.mark.parametrize("path_kind", ["missing", "file"])
+def test_create_environment_rejects_invalid_checkouts(
+    config: RunConfig, path_kind: str
+) -> None:
+    checkout = config.repo_path / "checkout"
+    if path_kind == "file":
+        checkout.write_text("application source")
+
+    with pytest.raises(EnvironmentSetupError, match="existing directory"):
+        create_environment(config, checkout)
+
+    if path_kind == "file":
+        assert checkout.read_text() == "application source"
+    else:
+        assert not checkout.exists()
+
+
+@pytest.mark.parametrize("path_kind", ["directory", "file", "dangling_symlink"])
+def test_create_environment_preserves_existing_targets(
+    config: RunConfig, path_kind: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    venv = config.repo_path / ".skewguard-venv"
+    if path_kind == "directory":
+        venv.mkdir()
+        (venv / "keep.txt").write_text("existing data")
+    elif path_kind == "file":
+        venv.write_text("existing data")
+    else:
+        venv.symlink_to(config.repo_path / "missing-target", target_is_directory=True)
+
+    def unexpected_uv(*args: object, **kwargs: object) -> Never:
+        raise AssertionError("an existing target must be rejected before running uv")
+
+    monkeypatch.setattr(envs, "run_uv", unexpected_uv)
+
+    with pytest.raises(EnvironmentSetupError, match="already exists"):
+        create_environment(config, config.repo_path)
+
+    if path_kind == "directory":
+        assert (venv / "keep.txt").read_text() == "existing data"
+    elif path_kind == "file":
+        assert venv.read_text() == "existing data"
+    else:
+        assert venv.is_symlink()
+        assert venv.readlink() == config.repo_path / "missing-target"
+        assert not (config.repo_path / "missing-target").exists()
+
+
+def test_create_environment_requires_a_python_executable(
+    config: RunConfig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def create_nothing(*args: object, **kwargs: object) -> str:
+        return ""
+
+    monkeypatch.setattr(envs, "run_uv", create_nothing)
+
+    with pytest.raises(EnvironmentSetupError, match="executable"):
+        create_environment(config, config.repo_path)
