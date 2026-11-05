@@ -9,9 +9,12 @@ Dependency versions are pinned in `shop/requirements.txt`.
 
 The base application uses `price`. The `shop_rename_price` case copies its
 migration into the head release and updates the head model, ordering, and view
-to use `amount`. The `shop_add_notes` case adds a nullable field. Case labels and
-migration sources live in `benchmark/cases/`; labels are expectations, not
-measured benchmark results.
+to use `amount`. The `shop_add_notes` case adds a nullable field. The
+`shop_add_required_category` case adds a non-null column with a Django Python
+default. The migration backfills existing rows, but old-code inserts omit the
+column and fail because no database default remains. Old reads still work.
+Case labels and migration sources live in `benchmark/cases/`; labels are
+expectations, not measured benchmark results.
 
 SkewGuard injects its disposable database connection. For manual Django commands,
 the fixture accepts `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, and `PGPASSWORD`.
