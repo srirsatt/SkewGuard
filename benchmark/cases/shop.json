@@ -12,5 +12,12 @@
     "migration": "shop_add_notes.py",
     "breaks_deploy_window": false,
     "breaks_rollback": false
+  },
+  {
+    "id": "shop_add_required_category",
+    "fixture": "shop",
+    "migration": "shop_add_required_category.py",
+    "breaks_deploy_window": true,
+    "breaks_rollback": true
   }
 ]
