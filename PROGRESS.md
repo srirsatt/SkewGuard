@@ -57,11 +57,10 @@
 - `clone_database` creates a uniquely named database from `template0` or a named
   source using the admin database, autocommit, and quoted SQL identifiers. It
   returns new connection settings and preserves the cause of PostgreSQL errors.
-- All 124 checks pass with `SKEWGUARD_TEST_POSTGRES=1`. Coverage includes 12 Git
-  helper/lifecycle cases, 24 environment cases, 15 database unit cases, and
-  3 real PostgreSQL integration cases, 7 migration-input helper cases, and
-  6 real Django migration integration cases, the shop fixture case, and its
-  read/write-probe compatibility cases. No checks were skipped or deselected.
+- The current run has 125 passing checks and one expected failure at the
+  `run_matrix` stub with `SKEWGUARD_TEST_POSTGRES=1`. Coverage includes Git,
+  environment isolation, PostgreSQL cloning, Django 4.2/5.2 migration execution,
+  and shop read/write/committed-write behavior. No checks were skipped.
   PostgreSQL integration tests remain opt-in for development without Docker.
   Environment tests exercise real offline virtual environments and local
   fixture wheel installs: different release dependencies, explicit install
@@ -88,8 +87,9 @@
   missing settings, and a slow migration. Fixtures intentionally configure an
   unusable original database to verify that the sandbox connection is used.
 - The first benchmark fixture is a Django 5.2.19 shop with deterministic product
-  records, `Meta.ordering`, and a plain JSON view using `.values()`. Two labeled
-  case definitions cover a breaking price rename and a safe nullable addition.
+  records, `Meta.ordering`, and a plain JSON view using `.values()`. Three labeled
+  case definitions cover a price rename, a safe nullable addition, and a required
+  category column that breaks old-code inserts.
   The fixture integration test verifies seeding, both migrations, and preservation
   of baseline rows against real PostgreSQL.
 - `seed_database` commits Django fixture inserts. The probe subprocess wrapper
@@ -106,9 +106,14 @@
   is identified by `ProbeValueError` and must not become a compatibility verdict.
 - `probe_model_write` attempts an insert inside an atomic transaction, rolls back
   on success or failure, and records structured execution evidence. The shop's
-  required-category case preserves reads but rejects old-code inserts. The three
+  required-category case preserves reads but rejects old-code inserts. The
   shop integration tests pass, covering repeated probes, the old-code integrity
   error, new-code success, and unchanged rows after rollback.
+- `run_committed_writes` prepares rollback checks using an atomic batch of
+  head-code inserts and preserves commit evidence. A dedicated regression test
+  verifies row persistence, the new model's Python default, and failure rollback.
+- `collect_cell` gathers read, rolled-back-write, and optional setup evidence as
+  validated cell records. Shop integration tests now share prepared releases.
 
 ## In progress
 
@@ -116,6 +121,10 @@
   implemented and verified against a running Docker engine.
 - Django migration execution and read/write probes are implemented and covered
   by regression tests. Explicit ordering probes and the matrix remain to be added.
+- `run_matrix` is the pending core function. Its integration test checks all four
+  cells across safe, rename, and required-column cases, including committed rows
+  and sequence isolation. The proposed implementation passed that test from a
+  temporary module but has not been added to the repository.
 - The remaining execution foundation also covers PostgreSQL snapshots,
   deterministic probes, and the matrix runner.
 
@@ -130,8 +139,9 @@
 
 ## Next
 
-- Connect worktrees, environments, migrations, snapshots, and probes into the
-  four-cell matrix.
+- Complete `run_matrix` using prepared environments, migration snapshots, and
+  independent per-cell database copies. Preparation/graph nodes will own the
+  worktree, environment, and container lifetimes.
 - Add explicit ordering probes.
 - Implement outcome normalization and executor tests.
 - Configure CI and pre-commit checks.
@@ -142,6 +152,8 @@
 
 - Finalize the remaining executor interfaces.
 - Use Django 5.2 for the first fixture; retain Django 4.2 execution coverage.
+- Define comparison rules for expected additional A0D1w rows; their presence is
+  not itself evidence of an incompatible migration.
 
 ## Initial release scope
 
