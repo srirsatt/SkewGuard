@@ -147,12 +147,33 @@ def probe_model(model_label: str, row_limit: int) -> dict[str, object]:
 def probe_model_write(model_label: str) -> dict[str, object]:
     """Attempt one insert and record its result after rolling back the transaction.
 
-    Use build_create_values for model inputs. Return scenario_id='orm:<label>:write'
-    and status='ok' only after the inserted row is rolled back. On failure,
-    record exception type/message and the Django IntegrityError classification.
-    Catch errors outside the atomic block so rollback completes before reporting.
     """
-    raise NotImplementedError("model write probe is not implemented")
+    scenario_id = f"orm:{model_label}:write"
+
+    try:
+        model = import_module("django.apps").apps.get_model(model_label)
+        transaction = import_module("django.db.transaction")
+
+        with transaction.atomic(using="default"):
+            values = build_create_values(model_label)
+            model._default_manager.db_manager("default").create(**values)
+            transaction.set_rollback(True, using="default")
+
+        return {
+            "scenario_id": scenario_id,
+            "status": "ok",
+            "body": {"created": True, "rolled_back": True},
+        }
+
+    except Exception as error:
+        integrity_error = import_module("django.db").IntegrityError
+        return {
+            "scenario_id": scenario_id,
+            "status": "exception",
+            "exception_type": type(error).__name__,
+            "exception_message": str(error),
+            "integrity_error": isinstance(error, integrity_error),
+        }
 
 
 def main() -> None:
