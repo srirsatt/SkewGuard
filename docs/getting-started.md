@@ -196,7 +196,7 @@ Matrix results are execution records, not compatibility verdicts. A0D1w may
 contain additional rows by design; those rows alone must not be treated as a
 regression when comparison and reproduction are implemented.
 
-## Outcome normalization preparation
+## Outcome normalization
 
 `skewguard/exec/diff.py` prepares normalized copies of body evidence while
 preserving raw outcomes for reporting. Callers explicitly select volatile field
@@ -205,10 +205,11 @@ names; the default policy masks nothing. Selected numeric/text leaves become
 counts remain observable. A field-name policy applies at every nested dictionary.
 Only select fields whose values are irrelevant to that check.
 
-The scalar masking helper and `normalize_outcome` wrapper are implemented.
-`normalize_value` remains unimplemented, with seven failing unit cases covering
-declared volatility, retained business values, missing fields, ordering, input
-preservation, repeatability, and retained status/exception evidence.
+`normalize_value` recursively copies dictionaries and lists, sorts dictionary
+keys, and masks only declared scalar fields. `normalize_outcome` applies it to
+the body of a new Outcome. Seven passing unit cases cover declared volatility,
+retained business values, missing fields, ordering, input preservation,
+repeatability, and retained status/exception evidence.
 
 ```bash
 uv run pytest tests/test_normalization.py -q
