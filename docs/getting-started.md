@@ -133,12 +133,13 @@ The tests install pinned Django 4.2.30 and 5.2.19 releases into temporary virtua
 environments, requiring access to PyPI or an existing uv cache. They exercise
 base/head migrations, database-copy isolation, repeat runs, errors, and timeouts.
 
-## Shop fixture and read probes
+## Shop fixture and ORM probes
 
 The first benchmark app lives in `benchmark/apps/shop/`. It includes product
 seed data and a JSON endpoint. `benchmark/cases/shop.json` records expected
-labels for a column rename and a nullable-column addition; the corresponding
-migration files are copied into head checkouts by integration tests.
+labels for a column rename, a nullable-column addition, and a required-column
+addition with a Python default. The corresponding migration files are copied
+into head checkouts by integration tests.
 
 `seed_database` loads a named Django fixture into the supplied sandbox and
 commits the inserted rows. `run_read_probes` launches a worker using the selected
@@ -149,6 +150,20 @@ row count, reads every concrete field, and records query exceptions. Its
 integration test covers baseline reads, the rename failure, and the safe nullable
 addition. These outcomes are execution evidence; verdict comparison and
 reproduction checks are still in development.
+
+`run_write_probes` dispatches insert checks through the same worker.
+`build_create_values` generates common scalar values, respects model defaults
+and choices, avoids existing field-level unique values, and uses existing seeded
+rows for required foreign keys. Unsupported input generation raises
+`ProbeValueError`; this is unavailable probe input, not a compatibility verdict.
+Composite/custom constraints may still require explicit factories or agent seeds.
+The core `probe_model_write` function remains unimplemented, with a failing test
+specifying insert results, required-column failures, and rolled-back probe rows.
+
+Standard write probes must roll back inserted rows. PostgreSQL sequence counters
+can still advance, so reproduction attempts must use fresh database copies.
+The rollback-safety matrix cell will separately preserve deliberate new-code
+writes before old-code reads.
 
 ```bash
 SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_shop_probes.py -q
