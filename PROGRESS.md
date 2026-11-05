@@ -4,7 +4,7 @@
 
 | Milestone | Status |
 | --- | --- |
-| 1: execution foundation | In progress: four-cell ORM execution implemented; ordering, normalization, and CI remain |
+| 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
 | 2: graph and generation | Not started |
 | 3: comparison, triage, reports, CLI | Not started |
 | 4: benchmark and evaluation | Not started |
@@ -118,20 +118,21 @@
   A0D0, A0D1, A1D1, and A0D1w. Only A0D1w receives committed head-code writes
   before old-code probes. Returned cell records preserve committed-write
   evidence. The matrix test covers all three shop cases and sequence isolation.
-- Normalization support includes an explicit volatile-field scalar policy and
-  an Outcome-copy wrapper that preserves scenario IDs, statuses, HTTP codes,
-  integrity flags, and exception evidence. No fields are ignored by default.
+- `normalize_value` recursively copies JSON bodies, sorts dictionary keys, and
+  masks explicitly selected volatile scalar fields. It preserves keys, row order,
+  row counts, nulls, booleans, and undeclared business values. `normalize_outcome`
+  retains scenario IDs, statuses, HTTP codes, integrity flags, and exceptions.
+  No fields are ignored by default. All seven normalization tests pass, and
+  Pyright and Ruff checks for the normalization module pass.
 
 ## In progress
 
 - PostgreSQL connection helpers, container lifecycle, and database cloning are
   implemented and verified against a running Docker engine.
 - Django migration execution, read/write probes, and four-cell execution are
-  implemented. Explicit ordering probes, outcome normalization, and CI remain.
-- `normalize_value` is the pending core function. Its seven unit cases currently
-  fail with `NotImplementedError`; a temporary completed copy passed all seven.
-  The existing fast suite passed 112 checks with 14 Docker tests deliberately
-  disabled. Pyright and the new files' Ruff checks pass.
+  implemented. Explicit ordering probes and CI remain.
+- Normalization is implemented and tested independently; comparison and fresh-state
+  reproduction still need to connect it to the matrix evidence.
 
 ## Execution design
 
@@ -145,7 +146,6 @@
 ## Next
 
 - Add explicit ordering probes.
-- Complete `normalize_value` and verify its normalization contract tests.
 - Add comparison and fresh-state reproduction checks before producing verdicts.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
