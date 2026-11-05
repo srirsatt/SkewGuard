@@ -176,6 +176,29 @@ def probe_model_write(model_label: str) -> dict[str, object]:
         }
 
 
+def commit_model_writes(model_labels: list[str]) -> list[dict[str, object]]:
+    """Commit new-code inserts together to prepare rollback checks.
+
+    Any failure aborts the batch. Return success evidence only after the outer
+    transaction commits; ordinary write probes continue to roll back their rows.
+    """
+    transaction = import_module("django.db.transaction")
+    outcomes: list[dict[str, object]] = []
+    with transaction.atomic(using="default"):
+        for label in model_labels:
+            model = import_module("django.apps").apps.get_model(label)
+            values = build_create_values(label)
+            model._default_manager.db_manager("default").create(**values)
+            outcomes.append(
+                {
+                    "scenario_id": f"orm:{label}:commit",
+                    "status": "ok",
+                    "body": {"created": True, "rolled_back": False},
+                }
+            )
+    return outcomes
+
+
 def main() -> None:
     request = json.load(sys.stdin)
     sys.path.insert(0, sys.argv[1])
@@ -196,7 +219,7 @@ def main() -> None:
                 )
                 outcomes = []
             else:
-                if request["operation"] not in {"read", "write"}:
+                if request["operation"] not in {"read", "write", "commit"}:
                     raise ValueError("unknown probe worker operation")
                 apps = import_module("django.apps").apps
                 labels = request["model_labels"]
@@ -206,8 +229,10 @@ def main() -> None:
                     outcomes = [
                         probe_model(label, request["row_limit"]) for label in labels
                     ]
-                else:
+                elif request["operation"] == "write":
                     outcomes = [probe_model_write(label) for label in labels]
+                else:
+                    outcomes = commit_model_writes(labels)
     finally:
         connections.close_all()
 
