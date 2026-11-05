@@ -1,4 +1,4 @@
-"""Execute read probes and fixture inserts in a release's Django environment."""
+"""Execute ORM probes and fixture inserts in a release's Django environment."""
 
 import json
 import subprocess
@@ -34,7 +34,7 @@ def _run_worker(
     database: DatabaseConnection,
     *,
     settings_module: str,
-    operation: Literal["seed", "read"],
+    operation: Literal["seed", "read", "write"],
     fixture: str | None = None,
     model_labels: list[str] | None = None,
 ) -> list[Outcome]:
@@ -112,5 +112,24 @@ def run_read_probes(
         database,
         settings_module=settings_module,
         operation="read",
+        model_labels=model_labels,
+    )
+
+
+def run_write_probes(
+    config: RunConfig,
+    environment: PythonEnvironment,
+    database: DatabaseConnection,
+    *,
+    settings_module: str,
+    model_labels: list[str] | None = None,
+) -> list[Outcome]:
+    """Collect insert outcomes without preserving the inserted probe rows."""
+    return _run_worker(
+        config,
+        environment,
+        database,
+        settings_module=settings_module,
+        operation="write",
         model_labels=model_labels,
     )
