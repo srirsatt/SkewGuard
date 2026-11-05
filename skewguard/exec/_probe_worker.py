@@ -4,7 +4,106 @@ import json
 import os
 import sys
 from contextlib import redirect_stdout
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
+from hashlib import sha256
 from importlib import import_module
+from uuid import UUID
+
+
+class ProbeValueError(ValueError):
+    """The deterministic generator cannot supply this model's required inputs."""
+
+
+def build_create_values(model_label: str) -> dict[str, object]:
+    """Prepare common field values; preserve model defaults and use seeded FKs.
+
+    Unsupported types or exhausted unique choices raise ProbeValueError. That
+    indicates unavailable probe input, not evidence of a deploy regression.
+    """
+    model = import_module("django.apps").apps.get_model(model_label)
+    values: dict[str, object] = {}
+    for field in model._meta.concrete_fields:
+        kind = field.get_internal_type()
+        if kind in {"AutoField", "BigAutoField", "SmallAutoField"} or getattr(
+            field, "generated", False
+        ):
+            continue
+        if field.has_default() or getattr(field, "has_db_default", lambda: False)():
+            continue
+        if field.null:
+            values[field.attname] = None
+            continue
+
+        candidates: list[object]
+        if field.choices:
+            candidates = [value for value, _ in field.flatchoices if value is not None]
+        elif field.is_relation:
+            related = field.related_model
+            if related is None:
+                raise ProbeValueError(f"unresolved relationship: {field.name}")
+            candidates = list(
+                related._default_manager.using("default")
+                .order_by(related._meta.pk.attname)
+                .values_list(field.target_field.attname, flat=True)[:32]
+            )
+        else:
+            candidates = [
+                _scalar_value(model_label, field.name, kind, field, attempt)
+                for attempt in range(32)
+            ]
+
+        for value in candidates:
+            if (
+                not field.unique
+                or not model._default_manager.using("default")
+                .filter(**{field.attname: value})
+                .exists()
+            ):
+                values[field.attname] = value
+                break
+        else:
+            raise ProbeValueError(f"no available value for {model_label}.{field.name}")
+    return values
+
+
+def _scalar_value(
+    model_label: str, name: str, kind: str, field: object, attempt: int
+) -> object:
+    """Return deterministic candidates for built-in scalar field types."""
+    digest = sha256(f"{model_label}.{name}:{attempt}".encode()).hexdigest()
+    maximum = getattr(field, "max_length", None)
+    if kind in {"CharField", "TextField", "SlugField", "EmailField"}:
+        value = f"probe{digest[:8]}@example.test" if kind == "EmailField" else digest
+        return value[:maximum] if maximum is not None else value
+    if kind in {
+        "IntegerField",
+        "BigIntegerField",
+        "SmallIntegerField",
+        "PositiveIntegerField",
+        "PositiveSmallIntegerField",
+        "PositiveBigIntegerField",
+    }:
+        return attempt + 1
+    if kind == "BooleanField":
+        return bool(attempt % 2)
+    if kind == "FloatField":
+        return float(attempt + 1)
+    if kind == "DecimalField":
+        return Decimal(attempt + 1).scaleb(-getattr(field, "decimal_places", 0))
+    if kind == "UUIDField":
+        return UUID(digest[:32], version=4)
+    if kind == "DateField":
+        return date(2024, 1, 1) + timedelta(days=attempt)
+    if kind == "DateTimeField":
+        return datetime(2024, 1, 1, tzinfo=UTC) + timedelta(seconds=attempt)
+    if kind == "TimeField":
+        return (datetime(2024, 1, 1) + timedelta(seconds=attempt)).time()
+    if kind == "DurationField":
+        return timedelta(seconds=attempt + 1)
+    if kind == "JSONField":
+        return {"skewguard": attempt}
+    raise ProbeValueError(f"unsupported field type: {model_label}.{name} ({kind})")
 
 
 def probe_model(model_label: str, row_limit: int) -> dict[str, object]:
@@ -45,6 +144,17 @@ def probe_model(model_label: str, row_limit: int) -> dict[str, object]:
         }
 
 
+def probe_model_write(model_label: str) -> dict[str, object]:
+    """Attempt one insert and record its result after rolling back the transaction.
+
+    Use build_create_values for model inputs. Return scenario_id='orm:<label>:write'
+    and status='ok' only after the inserted row is rolled back. On failure,
+    record exception type/message and the Django IntegrityError classification.
+    Catch errors outside the atomic block so rollback completes before reporting.
+    """
+    raise NotImplementedError("model write probe is not implemented")
+
+
 def main() -> None:
     request = json.load(sys.stdin)
     sys.path.insert(0, sys.argv[1])
@@ -65,15 +175,18 @@ def main() -> None:
                 )
                 outcomes = []
             else:
-                if request["operation"] != "read":
+                if request["operation"] not in {"read", "write"}:
                     raise ValueError("unknown probe worker operation")
                 apps = import_module("django.apps").apps
                 labels = request["model_labels"]
                 if labels is None:
                     labels = sorted(model._meta.label for model in apps.get_models())
-                outcomes = [
-                    probe_model(label, request["row_limit"]) for label in labels
-                ]
+                if request["operation"] == "read":
+                    outcomes = [
+                        probe_model(label, request["row_limit"]) for label in labels
+                    ]
+                else:
+                    outcomes = [probe_model_write(label) for label in labels]
     finally:
         connections.close_all()
 
