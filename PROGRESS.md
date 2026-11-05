@@ -4,7 +4,7 @@
 
 | Milestone | Status |
 | --- | --- |
-| 1: execution foundation | In progress: migrations, fixture seeding, and ORM read/write probes complete |
+| 1: execution foundation | In progress: four-cell ORM execution implemented; ordering, normalization, and CI remain |
 | 2: graph and generation | Not started |
 | 3: comparison, triage, reports, CLI | Not started |
 | 4: benchmark and evaluation | Not started |
@@ -57,10 +57,10 @@
 - `clone_database` creates a uniquely named database from `template0` or a named
   source using the admin database, autocommit, and quoted SQL identifiers. It
   returns new connection settings and preserves the cause of PostgreSQL errors.
-- The current run has 125 passing checks and one expected failure at the
-  `run_matrix` stub with `SKEWGUARD_TEST_POSTGRES=1`. Coverage includes Git,
-  environment isolation, PostgreSQL cloning, Django 4.2/5.2 migration execution,
-  and shop read/write/committed-write behavior. No checks were skipped.
+- All 126 checks pass with `SKEWGUARD_TEST_POSTGRES=1`; none were skipped or
+  deselected. Coverage includes Git, environment isolation, PostgreSQL cloning,
+  Django 4.2/5.2 migration execution, shop read/write/committed-write behavior,
+  and the complete four-cell matrix.
   PostgreSQL integration tests remain opt-in for development without Docker.
   Environment tests exercise real offline virtual environments and local
   fixture wheel installs: different release dependencies, explicit install
@@ -68,8 +68,8 @@
   protection of an existing active environment. Installation tests call the
   public entry point and cover manifest precedence and unsupported layouts.
   Pyright passes. Ruff reports import-order and line-length violations in
-  `skewguard/exec/db.py` and `skewguard/exec/runner.py`, and line-length violations
-  in `skewguard/exec/envs.py`.
+  `skewguard/exec/db.py` and `skewguard/exec/runner.py`, import ordering in
+  `skewguard/exec/matrix.py`, and line-length violations in `skewguard/exec/envs.py`.
 - Opt-in PostgreSQL integration tests exercise schema/data/sequence copying,
   independent mutations, rejection of active source connections, and cleanup
   after success or caller failure. All three passed against Docker Desktop and
@@ -114,19 +114,17 @@
   verifies row persistence, the new model's Python default, and failure rollback.
 - `collect_cell` gathers read, rolled-back-write, and optional setup evidence as
   validated cell records. Shop integration tests now share prepared releases.
+- `run_matrix` builds old and migrated snapshots and uses separate clones for
+  A0D0, A0D1, A1D1, and A0D1w. Only A0D1w receives committed head-code writes
+  before old-code probes. Returned cell records preserve committed-write
+  evidence. The matrix test covers all three shop cases and sequence isolation.
 
 ## In progress
 
 - PostgreSQL connection helpers, container lifecycle, and database cloning are
   implemented and verified against a running Docker engine.
-- Django migration execution and read/write probes are implemented and covered
-  by regression tests. Explicit ordering probes and the matrix remain to be added.
-- `run_matrix` is the pending core function. Its integration test checks all four
-  cells across safe, rename, and required-column cases, including committed rows
-  and sequence isolation. The proposed implementation passed that test from a
-  temporary module but has not been added to the repository.
-- The remaining execution foundation also covers PostgreSQL snapshots,
-  deterministic probes, and the matrix runner.
+- Django migration execution, read/write probes, and four-cell execution are
+  implemented. Explicit ordering probes, outcome normalization, and CI remain.
 
 ## Execution design
 
@@ -139,11 +137,10 @@
 
 ## Next
 
-- Complete `run_matrix` using prepared environments, migration snapshots, and
-  independent per-cell database copies. Preparation/graph nodes will own the
-  worktree, environment, and container lifetimes.
 - Add explicit ordering probes.
 - Implement outcome normalization and executor tests.
+- Add comparison and fresh-state reproduction checks before producing verdicts.
+- Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
 - Verify and pin agent/MCP dependencies and record the selected APIs in
   `docs/api-notes.md` before adding integration code.
