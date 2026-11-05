@@ -23,13 +23,25 @@ def normalize_value(
 ) -> JsonValue:
     """Return a recursively copied JSON value with declared volatile leaves masked.
 
-    Sort dictionary keys, retain all keys and list ordering/cardinality, and
-    replace only named scalar fields using mask_volatile_value. Recurse into
-    dictionaries/lists even when their parent key is declared volatile. Preserve
-    all other values and never mutate the input. Default to no masked fields.
     """
-    raise NotImplementedError("JSON outcome normalization is not implemented")
+    if isinstance(value, dict):
+        normalized: dict[str, JsonValue] = {}
 
+        for key, item in sorted(value.items()):
+            if key in volatile_fields and not isinstance(item, (dict, list)):
+                normalized[key] = mask_volatile_value(item)
+            else:
+                normalized[key] = normalize_value(item, volatile_fields=volatile_fields)
+
+        return normalized
+
+    if isinstance(value, list):
+        return [
+            normalize_value(item, volatile_fields=volatile_fields)
+            for item in value
+        ]
+
+    return value
 
 def normalize_outcome(
     outcome: Outcome,
