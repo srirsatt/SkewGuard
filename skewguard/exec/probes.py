@@ -34,7 +34,7 @@ def _run_worker(
     database: DatabaseConnection,
     *,
     settings_module: str,
-    operation: Literal["seed", "read", "write"],
+    operation: Literal["seed", "read", "write", "commit"],
     fixture: str | None = None,
     model_labels: list[str] | None = None,
 ) -> list[Outcome]:
@@ -133,3 +133,25 @@ def run_write_probes(
         operation="write",
         model_labels=model_labels,
     )
+
+
+def run_committed_writes(
+    config: RunConfig,
+    environment: PythonEnvironment,
+    database: DatabaseConnection,
+    *,
+    settings_module: str,
+    model_labels: list[str] | None = None,
+) -> list[Outcome]:
+    """Preserve a batch of new-code rows before running old-code rollback checks."""
+    outcomes = _run_worker(
+        config,
+        environment,
+        database,
+        settings_module=settings_module,
+        operation="commit",
+        model_labels=model_labels,
+    )
+    if not outcomes or any(outcome.status != "ok" for outcome in outcomes):
+        raise ProbeExecutionError("rollback checks require successful committed writes")
+    return outcomes
