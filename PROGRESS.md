@@ -57,8 +57,8 @@
 - `clone_database` creates a uniquely named database from `template0` or a named
   source using the admin database, autocommit, and quoted SQL identifiers. It
   returns new connection settings and preserves the cause of PostgreSQL errors.
-- All 126 checks pass with `SKEWGUARD_TEST_POSTGRES=1`; none were skipped or
-  deselected. Coverage includes Git, environment isolation, PostgreSQL cloning,
+- The last full Docker run passed all 126 then-existing checks, with none skipped
+  or deselected. Coverage includes Git, environment isolation, PostgreSQL cloning,
   Django 4.2/5.2 migration execution, shop read/write/committed-write behavior,
   and the complete four-cell matrix.
   PostgreSQL integration tests remain opt-in for development without Docker.
@@ -118,6 +118,9 @@
   A0D0, A0D1, A1D1, and A0D1w. Only A0D1w receives committed head-code writes
   before old-code probes. Returned cell records preserve committed-write
   evidence. The matrix test covers all three shop cases and sequence isolation.
+- Normalization support includes an explicit volatile-field scalar policy and
+  an Outcome-copy wrapper that preserves scenario IDs, statuses, HTTP codes,
+  integrity flags, and exception evidence. No fields are ignored by default.
 
 ## In progress
 
@@ -125,6 +128,10 @@
   implemented and verified against a running Docker engine.
 - Django migration execution, read/write probes, and four-cell execution are
   implemented. Explicit ordering probes, outcome normalization, and CI remain.
+- `normalize_value` is the pending core function. Its seven unit cases currently
+  fail with `NotImplementedError`; a temporary completed copy passed all seven.
+  The existing fast suite passed 112 checks with 14 Docker tests deliberately
+  disabled. Pyright and the new files' Ruff checks pass.
 
 ## Execution design
 
@@ -138,7 +145,7 @@
 ## Next
 
 - Add explicit ordering probes.
-- Implement outcome normalization and executor tests.
+- Complete `normalize_value` and verify its normalization contract tests.
 - Add comparison and fresh-state reproduction checks before producing verdicts.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
