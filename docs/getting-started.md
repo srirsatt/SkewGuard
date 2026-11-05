@@ -167,9 +167,34 @@ can still advance, so reproduction attempts must use fresh database copies.
 The rollback-safety matrix cell will separately preserve deliberate new-code
 writes before old-code reads.
 
+`run_committed_writes` provides that setup operation: it commits new-code inserts
+as a batch, returns separate `orm:<label>:commit` evidence, and fails if no write
+completed. A failed batch rolls back and aborts rollback-cell preparation.
+
 ```bash
 SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_shop_probes.py -q
 ```
+
+## Four-cell matrix preparation
+
+`collect_cell` in `skewguard/exec/matrix.py` groups read and rolled-back-write
+outcomes into a `CellResult`, optionally including committed-write setup evidence.
+`run_matrix` remains unimplemented; its integration test defines the four-cell
+execution contract for the safe, renamed-column, and required-column cases.
+
+The caller supplies prepared base/head environments and a running disposable
+server. The matrix must build an old-schema snapshot and a migrated snapshot,
+then clone a fresh database for every cell. Probes must never run directly on
+either snapshot, since even rolled-back inserts can advance sequences.
+Only A0D1w receives committed head-code rows before old-code probes.
+
+```bash
+SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_matrix.py -q
+```
+
+Matrix results are execution records, not compatibility verdicts. A0D1w may
+contain additional rows by design; those rows alone must not be treated as a
+regression when comparison and reproduction are implemented.
 
 ## Development checks
 
