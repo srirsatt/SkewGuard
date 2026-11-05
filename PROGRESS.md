@@ -4,7 +4,7 @@
 
 | Milestone | Status |
 | --- | --- |
-| 1: execution foundation | In progress: migrations, fixture seeding, and first ORM read probe complete |
+| 1: execution foundation | In progress: migrations, fixture seeding, and ORM read/write probes complete |
 | 2: graph and generation | Not started |
 | 3: comparison, triage, reports, CLI | Not started |
 | 4: benchmark and evaluation | Not started |
@@ -57,13 +57,11 @@
 - `clone_database` creates a uniquely named database from `template0` or a named
   source using the admin database, autocommit, and quoted SQL identifiers. It
   returns new connection settings and preserves the cause of PostgreSQL errors.
-- The current run has 123 passing checks and one expected failure at the pending
-  write-probe function. Passing coverage includes 12 Git
+- All 124 checks pass with `SKEWGUARD_TEST_POSTGRES=1`. Coverage includes 12 Git
   helper/lifecycle cases, 24 environment cases, 15 database unit cases, and
   3 real PostgreSQL integration cases, 7 migration-input helper cases, and
   6 real Django migration integration cases, the shop fixture case, and its
-  read-probe compatibility case. No checks were skipped. The write-probe
-  integration test currently fails with `NotImplementedError`.
+  read/write-probe compatibility cases. No checks were skipped or deselected.
   PostgreSQL integration tests remain opt-in for development without Docker.
   Environment tests exercise real offline virtual environments and local
   fixture wheel installs: different release dependencies, explicit install
@@ -106,20 +104,18 @@
   default/choice handling, field-level uniqueness checks, seeded foreign-key
   values, and a `run_write_probes` subprocess entry point. Unsupported generation
   is identified by `ProbeValueError` and must not become a compatibility verdict.
-- The shop corpus includes a required-category case that preserves reads but
-  rejects old-code inserts. A temporary completed write worker passed the three
-  shop integration tests, covering repeated probes, the old-code integrity error,
-  new-code success, and unchanged rows after rollback.
+- `probe_model_write` attempts an insert inside an atomic transaction, rolls back
+  on success or failure, and records structured execution evidence. The shop's
+  required-category case preserves reads but rejects old-code inserts. The three
+  shop integration tests pass, covering repeated probes, the old-code integrity
+  error, new-code success, and unchanged rows after rollback.
 
 ## In progress
 
 - PostgreSQL connection helpers, container lifecycle, and database cloning are
   implemented and verified against a running Docker engine.
-- Django migration execution is implemented and covered by committed regression
-  tests. Remaining execution work includes write/ordering probes and the matrix.
-- `probe_model_write` is the pending core function. The supporting plumbing and
-  integration test are implemented; the test fails until the insert/rollback
-  function is added.
+- Django migration execution and read/write probes are implemented and covered
+  by regression tests. Explicit ordering probes and the matrix remain to be added.
 - The remaining execution foundation also covers PostgreSQL snapshots,
   deterministic probes, and the matrix runner.
 
@@ -134,10 +130,9 @@
 
 ## Next
 
-- Complete and verify the write-probe transaction function, then add explicit
-  ordering probes.
 - Connect worktrees, environments, migrations, snapshots, and probes into the
   four-cell matrix.
+- Add explicit ordering probes.
 - Implement outcome normalization and executor tests.
 - Configure CI and pre-commit checks.
 - Verify and pin agent/MCP dependencies and record the selected APIs in
