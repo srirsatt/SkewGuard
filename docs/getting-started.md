@@ -157,8 +157,10 @@ and choices, avoids existing field-level unique values, and uses existing seeded
 rows for required foreign keys. Unsupported input generation raises
 `ProbeValueError`; this is unavailable probe input, not a compatibility verdict.
 Composite/custom constraints may still require explicit factories or agent seeds.
-The core `probe_model_write` function remains unimplemented, with a failing test
-specifying insert results, required-column failures, and rolled-back probe rows.
+`probe_model_write` attempts an insert inside an atomic transaction and forces a
+rollback before returning success. Database errors are caught outside the atomic
+block. The passing regression test covers insert results, required-column
+failures, repeated probes, and unchanged product rows after rollback.
 
 Standard write probes must roll back inserted rows. PostgreSQL sequence counters
 can still advance, so reproduction attempts must use fresh database copies.
