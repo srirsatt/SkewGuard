@@ -2,7 +2,6 @@
 
 import json
 import os
-import shutil
 from pathlib import Path
 
 import pytest
@@ -10,12 +9,14 @@ from psycopg import sql
 
 from skewguard.config import RunConfig
 from skewguard.exec.db import clone_database, connect_database, managed_postgres
-from skewguard.exec.envs import (
-    PythonEnvironment,
-    create_environment,
-    install_dependencies,
+from skewguard.exec.envs import PythonEnvironment
+from skewguard.exec.probes import (
+    ProbeExecutionError,
+    run_committed_writes,
+    run_read_probes,
+    run_write_probes,
+    seed_database,
 )
-from skewguard.exec.probes import run_read_probes, run_write_probes, seed_database
 from skewguard.exec.runner import run_migrations
 
 pytestmark = pytest.mark.skipif(
@@ -24,56 +25,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-@pytest.fixture(scope="module")
-def shop_releases(
-    tmp_path_factory: pytest.TempPathFactory,
-) -> tuple[RunConfig, dict[str, PythonEnvironment]]:
-    root = tmp_path_factory.mktemp("shop-releases")
-    config = RunConfig(repo_path=root, base_ref="base", head_ref="head")
-    environments: dict[str, PythonEnvironment] = {}
-    for release in ("base", "rename", "nullable", "required"):
-        checkout = root / release
-        shutil.copytree(
-            ROOT / "benchmark/apps/shop",
-            checkout,
-            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".skewguard-venv"),
-        )
-        if release != "base":
-            case = {
-                "rename": "shop_rename_price",
-                "nullable": "shop_add_notes",
-                "required": "shop_add_required_category",
-            }[release]
-            shutil.copyfile(
-                ROOT / "benchmark/cases" / f"{case}.py",
-                checkout / "catalog/migrations/0002_change.py",
-            )
-            model = checkout / "catalog/models.py"
-            if release == "rename":
-                for path in (model, checkout / "catalog/views.py"):
-                    path.write_text(path.read_text().replace("price", "amount"))
-            elif release == "nullable":
-                model.write_text(
-                    model.read_text().replace(
-                        "    class Meta:",
-                        "    notes = models.TextField(null=True)\n\n    class Meta:",
-                    )
-                )
-            else:
-                model.write_text(
-                    model.read_text().replace(
-                        "    class Meta:",
-                        "    category = models.CharField("
-                        'max_length=32, default="general")'
-                        "\n\n    class Meta:",
-                    )
-                )
-        environment = create_environment(config, checkout)
-        install_dependencies(config, environment)
-        environments[release] = environment
-    return config, environments
 
 
 def test_shop_fixture_seeds_and_both_head_migrations_preserve_rows(
@@ -226,3 +177,49 @@ def test_write_probe_catches_required_column_and_rolls_back_inserted_rows(
                     ).fetchall()
                     == before
                 )
+
+
+def test_committed_writes_persist_and_failed_batches_leave_no_rows(
+    shop_releases: tuple[RunConfig, dict[str, PythonEnvironment]],
+) -> None:
+    config, releases = shop_releases
+    with managed_postgres(config) as server:
+        database = clone_database(config, server)
+        run_migrations(
+            config, releases["base"], database, settings_module="shop.settings"
+        )
+        seed_database(
+            config,
+            releases["base"],
+            database,
+            settings_module="shop.settings",
+            fixture="products",
+        )
+        run_migrations(
+            config, releases["required"], database, settings_module="shop.settings"
+        )
+        with pytest.raises(ProbeExecutionError, match="IntegrityError"):
+            run_committed_writes(
+                config, releases["base"], database, settings_module="shop.settings"
+            )
+        with connect_database(config, database) as connection:
+            count = connection.execute(
+                "SELECT count(*) FROM catalog_product"
+            ).fetchone()
+            assert count == (2,)
+
+        committed = run_committed_writes(
+            config, releases["required"], database, settings_module="shop.settings"
+        )
+        assert len(committed) == 1
+        assert committed[0].scenario_id == "orm:catalog.Product:commit"
+        assert committed[0].body == {"created": True, "rolled_back": False}
+        with connect_database(config, database) as connection:
+            count = connection.execute(
+                "SELECT count(*) FROM catalog_product"
+            ).fetchone()
+            assert count == (3,)
+            assert connection.execute(
+                "SELECT category FROM catalog_product WHERE sku NOT IN (%s, %s)",
+                ("PEN", "NOTEBOOK"),
+            ).fetchone() == ("general",)
