@@ -6,9 +6,10 @@ import pytest
 
 from skewguard.config import RunConfig
 from skewguard.exec.db import managed_postgres
+from skewguard.exec.diff import compare_matrix
 from skewguard.exec.envs import PythonEnvironment
 from skewguard.exec.matrix import run_matrix
-from skewguard.exec.types import Cell
+from skewguard.exec.types import Cell, DivergenceCategory
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("SKEWGUARD_TEST_POSTGRES") != "1",
@@ -54,6 +55,25 @@ def test_matrix_uses_four_independent_cells_and_keeps_new_writes(
             assert committed not in by_cell[Cell.A0D0]
             assert committed not in by_cell[Cell.A0D1]
             assert committed not in by_cell[Cell.A1D1]
+
+            comparison = compare_matrix(results)
+            assert comparison.issues == []
+            expected_count = {"nullable": 0, "rename": 4, "required": 2}[release]
+            assert len(comparison.candidates) == expected_count
+            assert {item.cell for item in comparison.candidates} == (
+                set() if release == "nullable" else {Cell.A0D1, Cell.A0D1W}
+            )
+            if release == "required":
+                assert all(
+                    item.scenario_id == write
+                    and item.category == DivergenceCategory.INTEGRITY_ERROR
+                    for item in comparison.candidates
+                )
+            elif release == "rename":
+                assert all(
+                    item.category == DivergenceCategory.CRASH
+                    for item in comparison.candidates
+                )
 
             if release == "nullable":
                 assert all(
