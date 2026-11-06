@@ -9,6 +9,10 @@ and four-cell matrix execution are available. Outcome normalization, comparison,
 and fresh-state reproduction checks are implemented. Agents and the CLI are in
 development.
 
+Versioned JSON evidence reports, Markdown rendering, and `skewguard report` are
+available. The `skewguard run` command has argument validation and report output;
+its execution orchestration function is still pending.
+
 See the [development setup](docs/getting-started.md) and
 [project status](PROGRESS.md).
 
@@ -18,6 +22,7 @@ these commands from the repository root:
 ```bash
 uv sync --locked
 uv run python examples/run_config.py
+uv run skewguard --help
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
