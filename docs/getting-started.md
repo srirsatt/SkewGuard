@@ -43,7 +43,7 @@ Add runtime dependencies with `uv add PACKAGE` and development dependencies with
 Unknown fields are rejected. Instances prevent ordinary field reassignment, and
 defaults are validated. The worktree layer checks Git repositories and resolves
 references to commits. The uv wrapper enforces the timeout for environment
-commands; row-limit enforcement belongs to the future probe runner.
+commands; the probe worker enforces the read row limit.
 
 Use `backend_path=Path("backend")` when Django lives below the repository root,
 such as alongside a TypeScript frontend. Environment preparation checks that
@@ -193,8 +193,8 @@ SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_matrix.py -q
 ```
 
 Matrix results are execution records, not compatibility verdicts. A0D1w may
-contain additional rows by design; those rows alone must not be treated as a
-regression when comparison and reproduction are implemented.
+contain additional rows by design; body equivalence is therefore opt-in during
+comparison. Reproduction is required before confirming a divergence.
 
 ## Outcome normalization
 
@@ -221,9 +221,8 @@ when a check explicitly requests body equivalence.
 ## Outcome comparison
 
 The comparison support in `skewguard/exec/diff.py` matches old-code checks by
-scenario ID: A0D1 and A0D1w are compared with A0D0. `compare_outcomes` is currently
-an unimplemented core function, so comparison tests deliberately fail until that
-function is completed. The matrix wrapper, evidence models, and tests are present.
+scenario ID: A0D1 and A0D1w are compared with A0D0. `compare_outcomes` classifies
+individual pairs; `compare_matrix` gathers candidates and coverage/health issues.
 
 The comparison contract requires a successful baseline. Exceptions and HTTP
 responses outside 200–399 do not establish working baseline behavior. Intentional
@@ -256,8 +255,48 @@ reporting a reproducible deploy-window or rollback failure.
 uv run pytest tests/test_comparison.py -q
 ```
 
-The unit cases need no Docker. The existing matrix integration test also checks
-candidate classification for all three shop cases once the core is implemented.
+The unit cases need no Docker. The matrix integration test checks candidate
+classification for all three shop cases.
+
+## Fresh-state reproduction
+
+`skewguard/exec/verify.py` adds a replay runner and evidence matching. Its core
+`classify_reproductions` function is pending, so the reproduction tests currently
+fail at that placeholder. The following describes the implemented runner and
+the classification contract.
+
+`verify_matrix` runs an initial matrix and compares its outcomes. If there are
+candidates, it calls `run_matrix` twice more with the same releases, settings,
+fixture, and comparison policies. Each call creates new old-schema/migrated
+snapshots and cell databases. Python environments and the PostgreSQL server are
+reused; mutated cell databases are not. One pair of additional matrices rechecks
+all original candidates. With no initial candidates, no replay is scheduled.
+
+`same_divergence` requires the same cell, check, category, policy, baseline status,
+and observed failure metadata, including exact exception type/message. Body
+evidence is compared only under the original normalization policy when body
+equivalence was requested. Changing exception messages conservatively prevent
+confirmation, even if they describe similar underlying errors.
+
+`ReproductionAttempt` retains complete cell records and comparison results, or
+a known execution/setup error. `reproduction_state` distinguishes a matching
+failure, a disappearing/changed failure, and unavailable coverage. Initial setup
+errors propagate; known replay failures are recorded and password-redacted.
+Unexpected programming errors propagate rather than becoming migration results.
+
+The classification contract requires both additional failures to match before
+using `confirmed`. Missing coverage or failed replay setup produces `inconclusive`;
+otherwise a changed/disappearing failure produces `flaky`. These decisions are
+per original candidate. Failures first seen during a replay are retained in its
+evidence but are not promoted without their own reproduction cycle.
+`VerificationResult` retains all initial/replay evidence and decisions. Dropped
+or incomplete candidates are logged and preserved for later reporting. There is
+no overall safety flag; comparison issues still need to be reported.
+
+```bash
+uv run pytest tests/test_verification.py -q
+SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_verification_integration.py -q
+```
 
 ## Development checks
 
