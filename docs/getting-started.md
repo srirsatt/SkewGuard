@@ -260,10 +260,10 @@ classification for all three shop cases.
 
 ## Fresh-state reproduction
 
-`skewguard/exec/verify.py` adds a replay runner and evidence matching. Its core
-`classify_reproductions` function is pending, so the reproduction tests currently
-fail at that placeholder. The following describes the implemented runner and
-the classification contract.
+`skewguard/exec/verify.py` implements a replay runner, evidence matching, and
+classification. `classify_reproductions` assigns a decision to every original
+candidate after exactly two additional attempts, retaining the candidate and a
+reason for later reporting.
 
 `verify_matrix` runs an initial matrix and compares its outcomes. If there are
 candidates, it calls `run_matrix` twice more with the same releases, settings,
