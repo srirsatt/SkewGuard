@@ -1,5 +1,6 @@
 """Normalize evidence and identify old-code skew regression candidates."""
 
+from skewguard.exec.types import DivergenceCategory
 import json
 
 from pydantic import JsonValue
@@ -110,12 +111,43 @@ def compare_outcomes(
 ) -> CandidateDivergence | None:
     """Classify a matching old-code check without declaring a verified verdict.
 
-    Validate the pair. Ignore unusable baselines and ProbeValueError inputs;
-    compare_matrix records those issues separately. Classify observed exceptions
-    first (integrity_error before crash), then status changes, then opt-in
-    normalized body changes. Retain raw outcomes and policy in any candidate.
     """
-    raise NotImplementedError("outcome comparison is not implemented")
+
+    validate_comparison_pair(baseline, observed, cell)
+    # this function is to check divergence from different cells
+
+    selected = policy if policy is not None else ComparisonPolicy()
+
+    # make sure its valid evidence via helpers
+
+    if not baseline_is_usable(baseline) or probe_input_is_unavailable(observed):
+        return None
+
+    # classify exception type
+    if observed.status == "exception":
+        category = (
+            DivergenceCategory.INTEGRITY_ERROR
+            if observed.integrity_error else DivergenceCategory.CRASH
+        )
+    elif (baseline.status, baseline.http_status) != (
+        observed.status, observed.http_status
+    ):
+        category = DivergenceCategory.STATUS_CHANGE
+    elif selected.compare_body and body_comparison_key(baseline, selected) != body_comparison_key(observed, selected):
+        category = DivergenceCategory.BODY_CHANGE
+    else:
+        return None
+
+    # once we've classified + verified evidence validity, return as a CandidateDivergence type
+
+    return CandidateDivergence(
+        cell=cell,
+        scenario_id=baseline.scenario_id,
+        category=category,
+        baseline=baseline,
+        observed=observed,
+        policy=selected,
+    )
 
 
 def compare_matrix(
