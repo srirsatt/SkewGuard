@@ -298,6 +298,117 @@ uv run pytest tests/test_verification.py -q
 SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_verification_integration.py -q
 ```
 
+## JSON and Markdown reports
+
+`skewguard/report/json_report.py` defines schema version `1`, pinned release
+metadata, the full verification evidence, and a deterministic summary. Reports
+retain initial cell records, both replay attempts, original candidate decisions,
+coverage/health issues, and replay-only candidates. Counters describe recorded
+evidence, not benchmark performance.
+
+Loading JSON recomputes comparisons from saved cell outcomes, decisions from
+saved replay evidence, and the summary. Conflicting labels, unsupported schema
+versions, and invalid records are rejected. These consistency checks do not
+authenticate the origin of a report or execute its checks again. Reading saved
+evidence requires neither Docker nor the original repository.
+
+The summary distinguishes `break_detected`, `no_break_detected`, and
+`inconclusive`, with separate deploy-window/rollback results. A reproduced break
+remains a finding even if other checks have issues. Without a reproduced break,
+flaky/incomplete checks, issue observations, or replay-only failures prevent a
+clear result. `no_break_detected` applies only to the checks that ran.
+
+`skewguard/report/markdown.py` renders the pinned commits, results, findings,
+coverage issues, and replay execution errors. Evidence text is escaped for
+Markdown/HTML. Displayed outcome details are bounded; full evidence stays in
+JSON. Output files are replaced atomically, so a failed individual write does
+not leave a partially written report.
+
+## Command-line interface
+
+The CLI uses pinned [Typer 0.27.3](https://pypi.org/project/typer/0.27.3/),
+`Annotated` options, and `typer.testing.CliRunner` for tests, following the
+[official Typer documentation](https://typer.tiangolo.com/tutorial/options/name/).
+After changing dependencies or entry points, run `uv sync --locked`.
+
+```bash
+uv run skewguard --help
+uv run skewguard run --help
+uv run python -m skewguard --help
+```
+
+`run_verification` in `skewguard/cli.py` is currently pending. The parser, reports,
+saved-report command, and execution contract tests are implemented; the following
+run workflow requires that orchestration function to be completed.
+
+To run the in-repository shop fixture after completing orchestration, start
+Docker and run from the SkewGuard repository root:
+
+```bash
+uv run skewguard run \
+  --repo . --base main --head HEAD \
+  --backend benchmark/apps/shop \
+  --settings shop.settings --seed products \
+  --json /tmp/skewguard-shop.json
+```
+
+When both refs contain the same shop schema, this is a passing smoke check. The
+CLI integration tests create separate safe/breaking fixture releases to exercise
+actual migration skew.
+
+For an existing Django repository:
+
+```bash
+uv run skewguard run \
+  --repo /path/to/django-repo \
+  --base main \
+  --head HEAD \
+  --settings project.settings \
+  --seed products \
+  --json reports/skewguard.json
+```
+
+Use committed releases: worktrees do not include uncommitted changes. Supply
+`--settings` or set `DJANGO_SETTINGS_MODULE` to a module available in both
+releases. `--seed` is optional and names a Django fixture in the base release.
+When Django is below the repository root, add `--backend backend`. The existing
+executor supports a backend `uv.lock` plus `pyproject.toml`, or `requirements.txt`.
+
+The default JSON output is `skewguard-report.json`; Markdown defaults to the same
+stem with `.md`, or can be selected with `--markdown PATH`. Destinations must be
+different. `--timeout` and `--probe-row-limit` configure the existing limits.
+Execution uses temporary worktrees/environments and a disposable PostgreSQL
+container. The reports persist after those resources are removed.
+
+| `run` exit code | Meaning |
+| --- | --- |
+| `0` | No break detected in executed checks |
+| `1` | At least one reproducible break detected |
+| `2` | Invalid input, setup/execution error, or failed report output |
+| `3` | Inconclusive verification without a confirmed break |
+
+An initial setup failure aborts without a new report. Failed additional replays
+are retained as inconclusive evidence in the report. Reports may contain errors
+or data produced by the target application. Current checks are deterministic ORM
+probes; generated scenarios, interactive triage, and `skewguard bench` remain
+planned features.
+
+Re-render a completed report without booting the application:
+
+```bash
+uv run skewguard report reports/skewguard.json
+uv run skewguard report reports/skewguard.json --markdown reports/comment.md
+```
+
+The `report` command exits `0` after successful rendering, even when the saved
+evidence contains a reproduced break; invalid input or output errors exit `2`.
+It refuses to overwrite its JSON input with Markdown.
+
+```bash
+uv run pytest tests/test_reports.py tests/test_cli.py -q
+SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_cli_integration.py -q
+```
+
 ## Development checks
 
 ```bash
