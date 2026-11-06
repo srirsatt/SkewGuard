@@ -6,7 +6,7 @@
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
 | 2: graph and generation | Not started |
-| 3: comparison, triage, reports, CLI | Not started |
+| 3: comparison, triage, reports, CLI | Comparison support and test contract added; core pending |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
 | 6: optional fixer and release documentation | Not started |
@@ -124,6 +124,24 @@
   retains scenario IDs, statuses, HTTP codes, integrity flags, and exceptions.
   No fields are ignored by default. All seven normalization tests pass, and
   Pyright and Ruff checks for the normalization module pass.
+- Comparison evidence models distinguish unconfirmed divergence candidates from
+  coverage/setup/new-code health issues. Candidates retain both raw outcomes and
+  an explicit body comparison policy.
+- Comparison helpers validate matching scenario IDs, restrict paired comparisons
+  to old-code skew cells, require working baselines, recognize unavailable probe
+  inputs, and serialize normalized bodies without collapsing JSON value types.
+- `compare_matrix` pairs A0D1/A0D1w with A0D0, checks A1D1 execution health
+  separately, and retains missing checks, empty baseline/head cells, failed
+  baselines, unavailable inputs, and failed rollback setup as issues.
+  Generic ORM body equality is opt-in, allowing expected additional rollback rows.
+- Twenty-nine comparison unit cases and three-case matrix assertions define the
+  comparison contract. `compare_outcomes` remains the single unimplemented core;
+  its dependent tests currently fail with `NotImplementedError`.
+- Verification of a temporary completed comparison core passed all 162 tests with
+  Docker/PostgreSQL enabled, including every matrix case. Repository-wide Pyright
+  and targeted Ruff checks pass. This verifies the proposed implementation;
+  the checked-in core placeholder still needs completion and its own passing run.
+  Existing unrelated Ruff violations have been left unchanged.
 
 ## In progress
 
@@ -131,8 +149,8 @@
   implemented and verified against a running Docker engine.
 - Django migration execution, read/write probes, and four-cell execution are
   implemented. Explicit ordering probes and CI remain.
-- Normalization is implemented and tested independently; comparison and fresh-state
-  reproduction still need to connect it to the matrix evidence.
+- Normalization is implemented. Comparison support is present, but
+  `compare_outcomes` and fresh-state reproduction remain unfinished.
 
 ## Execution design
 
@@ -146,7 +164,8 @@
 ## Next
 
 - Add explicit ordering probes.
-- Add comparison and fresh-state reproduction checks before producing verdicts.
+- Complete `compare_outcomes`, verify its tests, then add two fresh-state
+  reproduction attempts before producing verdicts.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
 - Verify and pin agent/MCP dependencies and record the selected APIs in
@@ -156,8 +175,8 @@
 
 - Finalize the remaining executor interfaces.
 - Use Django 5.2 for the first fixture; retain Django 4.2 execution coverage.
-- Define comparison rules for expected additional A0D1w rows; their presence is
-  not itself evidence of an incompatible migration.
+- Define expected-status support for intentional negative HTTP scenarios when
+  scenario execution is added. Current successful baselines require HTTP 200–399.
 
 ## Initial release scope
 
