@@ -215,9 +215,49 @@ repeatability, and retained status/exception evidence.
 uv run pytest tests/test_normalization.py -q
 ```
 
-Normalization is not yet applied during matrix collection. It will be used by
-comparison; it does not itself identify a regression or reconcile expected
-additional rollback-cell rows.
+Normalization leaves collected matrix records unchanged. Comparison uses it only
+when a check explicitly requests body equivalence.
+
+## Outcome comparison
+
+The comparison support in `skewguard/exec/diff.py` matches old-code checks by
+scenario ID: A0D1 and A0D1w are compared with A0D0. `compare_outcomes` is currently
+an unimplemented core function, so comparison tests deliberately fail until that
+function is completed. The matrix wrapper, evidence models, and tests are present.
+
+The comparison contract requires a successful baseline. Exceptions and HTTP
+responses outside 200–399 do not establish working baseline behavior. Intentional
+negative HTTP scenarios will need a separate expected-status policy. Observed
+`ProbeValueError` records indicate unavailable generated input, rather than an
+application regression.
+
+Execution failures take priority over response differences: integrity errors,
+other exceptions, status changes, then explicitly requested body changes. Body
+comparison defaults to off, because generic ORM reads can legitimately contain
+new rows in A0D1w. `ComparisonPolicy(compare_body=True, volatile_fields=...)`
+enables normalized body equivalence for a particular scenario. Only select this
+when equal output is part of the scenario's expected behavior. Canonical JSON
+comparison preserves distinctions such as `false` versus `0`.
+
+`compare_matrix` requires exactly one record for each cell. It retains failed
+baselines, missing/unmatched checks, unavailable inputs, and new-code execution
+failures as separate issues. It checks A1D1 for execution health rather than
+requiring new-code responses to equal old-code responses. The current ORM-only
+rollback setup requires successful `orm:<label>:commit` records before comparing
+A0D1w. Empty baseline/head cells are coverage issues.
+
+`CandidateDivergence` retains raw baseline/observed outcomes and the comparison
+policy. It represents a candidate awaiting reproduction, not a verified verdict.
+An empty candidate list is not a safety proof, particularly when issues remain.
+Two additional executions from fresh database state are still required before
+reporting a reproducible deploy-window or rollback failure.
+
+```bash
+uv run pytest tests/test_comparison.py -q
+```
+
+The unit cases need no Docker. The existing matrix integration test also checks
+candidate classification for all three shop cases once the core is implemented.
 
 ## Development checks
 
