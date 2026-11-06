@@ -6,7 +6,7 @@
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
 | 2: graph and generation | Not started |
-| 3: comparison, triage, reports, CLI | Reports and CLI commands implemented; CLI orchestration pending; triage remains |
+| 3: comparison, triage, reports, CLI | Deterministic verification, reports, and CLI implemented; triage remains |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
 | 6: optional fixer and release documentation | Not started |
@@ -178,17 +178,19 @@
   (2), and inconclusive verification (3).
 - `skewguard report` validates and renders saved evidence without application or
   database execution. CLI output paths and input settings are checked before
-  expensive execution. CLI orchestration remains the single unimplemented core
-  in `run_verification`; its dependent tests currently fail at that placeholder.
+  expensive execution. `run_verification` prepares separate base/head environments
+  within managed worktrees, verifies the matrix within managed PostgreSQL, and
+  builds the pinned evidence report before checkout cleanup.
 - Report and CLI tests cover summary uncertainty, evidence consistency, JSON
   portability, Markdown escaping, atomic-write failures, argument/exit behavior,
   saved-report rendering, and resource cleanup contracts. PostgreSQL integration
   cases exercise safe/breaking Git releases and preserve the original checkout.
-- Validation using a temporary completed `run_verification` passed all 227 tests
-  with Docker/PostgreSQL enabled, including actual CLI setup, report output,
-  safe/breaking release verdicts, and cleanup. Pyright and targeted Ruff checks
-  pass. The checked-in orchestration placeholder still needs completion and its
-  own passing run; report/rendering commands and supporting code are implemented.
+- `run_verification` is implemented and reviewed. Pyright passes; CLI Ruff flags
+  are limited to import order and line length, with authored formatting retained.
+- The completed CLI implementation passed all 227 tests with Docker/PostgreSQL
+  enabled, including safe/breaking CLI runs, report output, and resource cleanup.
+  No tests were skipped or deselected, and no temporary orchestration replacement
+  was used.
 
 ## In progress
 
@@ -197,7 +199,7 @@
 - Django migration execution, read/write probes, and four-cell execution are
   implemented. Explicit ordering probes and CI remain.
 - Normalization, comparison, fresh-state reproduction, and reports are implemented.
-  The CLI parser/report command are implemented; `run_verification` remains.
+  End-to-end CLI orchestration and saved-report rendering are implemented.
 
 ## Execution design
 
@@ -211,7 +213,7 @@
 ## Next
 
 - Add explicit ordering probes.
-- Complete `run_verification` and verify end-to-end CLI execution.
+- Add static migration/code-reference analysis for agent planning.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
 - Verify and pin agent/MCP dependencies and record the selected APIs in
