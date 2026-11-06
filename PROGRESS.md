@@ -6,7 +6,7 @@
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
 | 2: graph and generation | Not started |
-| 3: comparison, triage, reports, CLI | Comparison implemented; reproduction classification pending |
+| 3: comparison, triage, reports, CLI | Comparison and reproduction implemented; triage, reports, CLI remain |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
 | 6: optional fixer and release documentation | Not started |
@@ -150,14 +150,16 @@
   metadata, plus normalized bodies when requested. Relevant missing coverage is
   distinct from a disappearing failure. Dropped/incomplete candidates are logged
   and remain in evidence; replay-only candidates are not promoted.
-- Twenty-four unit cases and a PostgreSQL integration test define the reproduction
-  contract. `classify_reproductions` remains the single unimplemented core;
-  its dependent tests currently fail with `NotImplementedError`.
-- Validation with a temporary completed classifier passed all 187 tests with
-  Docker/PostgreSQL enabled, including three independent matrices for the rename
-  case. Repository-wide Pyright and Ruff checks on the new reproduction code pass.
-  This validates the proposed classifier; the checked-in placeholder still needs
-  completion and a passing test run.
+- `classify_reproductions` requires exactly two distinct numbered attempts,
+  confirms only two matching failures, gives unavailable coverage precedence as
+  inconclusive, and records disappearing/changed failures as flaky. It retains
+  every original candidate in order with a reason for its decision.
+- Twenty-four unit cases and a PostgreSQL integration test cover reproduction,
+  including three independent matrices for the rename case. Repository-wide
+  Pyright and Ruff checks on `skewguard/exec/verify.py` pass.
+- The completed classifier passed the full 187-test suite with Docker/PostgreSQL
+  enabled and no tests skipped or deselected. This run uses the checked-in
+  implementation, without a temporary replacement classifier.
 
 ## In progress
 
@@ -165,8 +167,8 @@
   implemented and verified against a running Docker engine.
 - Django migration execution, read/write probes, and four-cell execution are
   implemented. Explicit ordering probes and CI remain.
-- Normalization and comparison are implemented. The fresh-state replay runner,
-  evidence records, and matching helpers are implemented; classification remains.
+- Normalization, comparison, and fresh-state reproduction are implemented.
+  JSON/Markdown reporting and agent integration remain.
 
 ## Execution design
 
@@ -180,8 +182,7 @@
 ## Next
 
 - Add explicit ordering probes.
-- Complete `classify_reproductions` and verify the two-replay confirmation gate
-  before producing verdicts.
+- Connect verified execution evidence to JSON and Markdown reports.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
 - Verify and pin agent/MCP dependencies and record the selected APIs in
