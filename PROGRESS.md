@@ -6,7 +6,7 @@
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
 | 2: graph and generation | Not started |
-| 3: comparison, triage, reports, CLI | Comparison support and test contract added; core pending |
+| 3: comparison, triage, reports, CLI | Comparison implemented; reproduction classification pending |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
 | 6: optional fixer and release documentation | Not started |
@@ -57,7 +57,8 @@
 - `clone_database` creates a uniquely named database from `template0` or a named
   source using the admin database, autocommit, and quoted SQL identifiers. It
   returns new connection settings and preserves the cause of PostgreSQL errors.
-- The last full Docker run passed all 126 then-existing checks, with none skipped
+- The completed comparison implementation passed all 162 then-existing checks
+  with Docker enabled, with none skipped
   or deselected. Coverage includes Git, environment isolation, PostgreSQL cloning,
   Django 4.2/5.2 migration execution, shop read/write/committed-write behavior,
   and the complete four-cell matrix.
@@ -70,6 +71,8 @@
   Pyright passes. Ruff reports import-order and line-length violations in
   `skewguard/exec/db.py` and `skewguard/exec/runner.py`, import ordering in
   `skewguard/exec/matrix.py`, and line-length violations in `skewguard/exec/envs.py`.
+  The completed `skewguard/exec/diff.py` also has import-order/line-length flags;
+  user-authored formatting has been retained.
 - Opt-in PostgreSQL integration tests exercise schema/data/sequence copying,
   independent mutations, rejection of active source connections, and cleanup
   after success or caller failure. All three passed against Docker Desktop and
@@ -134,14 +137,27 @@
   separately, and retains missing checks, empty baseline/head cells, failed
   baselines, unavailable inputs, and failed rollback setup as issues.
   Generic ORM body equality is opt-in, allowing expected additional rollback rows.
-- Twenty-nine comparison unit cases and three-case matrix assertions define the
-  comparison contract. `compare_outcomes` remains the single unimplemented core;
+- `compare_outcomes` is implemented and all 29 comparison unit cases pass.
+  The full Docker-backed run also verifies candidate classification for all three
+  shop cases. An accidental runtime import from pytest was removed.
+- Reproduction records preserve two numbered attempts, full replay cell evidence
+  or execution errors, and per-candidate confirmed/flaky/inconclusive decisions.
+- `verify_matrix` runs an initial matrix and schedules two additional fresh-state
+  matrices only when there are candidates. It reuses release environments and
+  seed inputs, records known replay errors without exposing passwords, and
+  propagates initial setup failures or unexpected programming errors.
+- Reproduction matching checks identity, policy, status, and exact exception
+  metadata, plus normalized bodies when requested. Relevant missing coverage is
+  distinct from a disappearing failure. Dropped/incomplete candidates are logged
+  and remain in evidence; replay-only candidates are not promoted.
+- Twenty-four unit cases and a PostgreSQL integration test define the reproduction
+  contract. `classify_reproductions` remains the single unimplemented core;
   its dependent tests currently fail with `NotImplementedError`.
-- Verification of a temporary completed comparison core passed all 162 tests with
-  Docker/PostgreSQL enabled, including every matrix case. Repository-wide Pyright
-  and targeted Ruff checks pass. This verifies the proposed implementation;
-  the checked-in core placeholder still needs completion and its own passing run.
-  Existing unrelated Ruff violations have been left unchanged.
+- Validation with a temporary completed classifier passed all 187 tests with
+  Docker/PostgreSQL enabled, including three independent matrices for the rename
+  case. Repository-wide Pyright and Ruff checks on the new reproduction code pass.
+  This validates the proposed classifier; the checked-in placeholder still needs
+  completion and a passing test run.
 
 ## In progress
 
@@ -149,8 +165,8 @@
   implemented and verified against a running Docker engine.
 - Django migration execution, read/write probes, and four-cell execution are
   implemented. Explicit ordering probes and CI remain.
-- Normalization is implemented. Comparison support is present, but
-  `compare_outcomes` and fresh-state reproduction remain unfinished.
+- Normalization and comparison are implemented. The fresh-state replay runner,
+  evidence records, and matching helpers are implemented; classification remains.
 
 ## Execution design
 
@@ -164,8 +180,8 @@
 ## Next
 
 - Add explicit ordering probes.
-- Complete `compare_outcomes`, verify its tests, then add two fresh-state
-  reproduction attempts before producing verdicts.
+- Complete `classify_reproductions` and verify the two-replay confirmation gate
+  before producing verdicts.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
 - Verify and pin agent/MCP dependencies and record the selected APIs in
