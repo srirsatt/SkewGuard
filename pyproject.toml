@@ -12,7 +12,11 @@ dependencies = [
     "psycopg[binary]==3.3.7",
     "pydantic==2.14.1",
     "testcontainers[postgres]==4.15.0",
+    "typer==0.27.3",
 ]
+
+[project.scripts]
+skewguard = "skewguard.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["skewguard"]
