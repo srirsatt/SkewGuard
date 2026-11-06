@@ -78,12 +78,37 @@ def classify_reproductions(
 ) -> list[ReproductionDecision]:
     """Classify each original candidate after exactly two numbered replays.
 
-    Reject incomplete or duplicate attempt numbers. An unavailable replay or
-    relevant coverage gap is inconclusive. Otherwise confirm only two matching
-    failures; discard disappearing or changed failures as flaky. Preserve every
-    original candidate in order with a deterministic reason for its status.
     """
-    raise NotImplementedError("reproduction classification is not implemented")
+    if sorted(attempt.number for attempt in attempts) != [1, 2]:
+        raise ValueError("reproduction requires exactly two distinct attempts")
+    
+    decisions: list[ReproductionDecision] = []
+
+    for candidate in initial.candidates:
+        states = [
+            reproduction_state(candidate, attempt)
+            for attempt in attempts
+        ]
+
+        if "inconclusive" in states:
+            status = "inconclusive"
+            reason = "a replay failed or lacked coverage for this check"
+        elif all(state == "matched" for state in states):
+            status = "confirmed"
+            reason = "the same divergence reproduced in both additional executions"
+        else:
+            status = "flaky"
+            reason = "the divergence disappeared or changed in an additional execution"
+
+        decisions.append(
+            ReproductionDecision(
+                candidate=candidate,
+                status=status,
+                reason=reason,
+            )
+        )
+
+    return decisions
 
 
 def verify_matrix(
