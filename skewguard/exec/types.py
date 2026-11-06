@@ -142,3 +142,62 @@ class ComparisonResult(BaseModel):
         default_factory=list[CandidateDivergence]
     )
     issues: list[ComparisonIssue] = Field(default_factory=list[ComparisonIssue])
+
+
+class ReproductionAttempt(BaseModel):
+    """One fresh matrix replay, preserving either its evidence or setup error."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    number: int = Field(ge=1, le=2, strict=True)
+    cells: list[CellResult] | None = None
+    comparison: ComparisonResult | None = None
+    error: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def validate_attempt_evidence(self) -> Self:
+        if self.error is not None:
+            if self.cells is not None or self.comparison is not None:
+                raise ValueError("failed replay cannot also contain completed evidence")
+        else:
+            if self.cells is None or self.comparison is None:
+                raise ValueError("completed replay requires cells and comparison")
+            if len(self.cells) != len(Cell) or {
+                result.cell for result in self.cells
+            } != set(Cell):
+                raise ValueError("completed replay requires exactly one of every cell")
+        return self
+
+
+class ReproductionDecision(BaseModel):
+    """A replay classification for one original candidate, with an audit reason."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    candidate: CandidateDivergence
+    status: Literal["confirmed", "flaky", "inconclusive"]
+    reason: str = Field(min_length=1)
+
+
+class VerificationResult(BaseModel):
+    """Initial evidence, two additional attempts when needed, and their decisions."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    initial_cells: list[CellResult]
+    initial_comparison: ComparisonResult
+    attempts: list[ReproductionAttempt]
+    decisions: list[ReproductionDecision]
+
+    @model_validator(mode="after")
+    def validate_reproduction_coverage(self) -> Self:
+        if self.initial_comparison.candidates:
+            if sorted(attempt.number for attempt in self.attempts) != [1, 2]:
+                raise ValueError("candidates require exactly two additional attempts")
+        elif self.attempts:
+            raise ValueError("replays require initial candidates")
+        if [decision.candidate for decision in self.decisions] != (
+            self.initial_comparison.candidates
+        ):
+            raise ValueError("decisions must cover the original candidates in order")
+        return self
