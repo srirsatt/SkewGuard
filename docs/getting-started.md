@@ -337,12 +337,13 @@ uv run skewguard run --help
 uv run python -m skewguard --help
 ```
 
-`run_verification` in `skewguard/cli.py` is currently pending. The parser, reports,
-saved-report command, and execution contract tests are implemented; the following
-run workflow requires that orchestration function to be completed.
+`run_verification` in `skewguard/cli.py` owns the temporary worktrees,
+per-release environments, and disposable PostgreSQL lifecycle. It runs the
+verification matrix and builds a report with pinned commit IDs. The command
+writes JSON/Markdown after those temporary resources are removed.
 
-To run the in-repository shop fixture after completing orchestration, start
-Docker and run from the SkewGuard repository root:
+To run the in-repository shop fixture, start Docker and run from the SkewGuard
+repository root:
 
 ```bash
 uv run skewguard run \
