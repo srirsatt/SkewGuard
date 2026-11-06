@@ -13,3 +13,5 @@ build/
 !.env.example
 .DS_Store
 NOTES.md
+/skewguard-report.json
+/skewguard-report.md
