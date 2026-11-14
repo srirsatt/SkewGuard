@@ -332,12 +332,32 @@ general sandbox for arbitrary Python import side effects. Migration operation
 bodies and data-migration functions are not executed by the inspector.
 Module/startup output goes to stderr; stdout contains the JSON inventory.
 
-The parent launcher, release comparison, and CLI integration are pending. The
-worker contract tests execute it directly in temporary Django 4.2.30 and 5.2.19
-environments. They require uv and dependency downloads/cache, but no Docker:
+`inspect_migrations` in `skewguard/static/migrations.py` launches the worker with
+the selected release's interpreter, backend, and checkout paths. It validates
+environment ownership, applies the configured timeout, and validates the returned
+JSON as `MigrationInventory`. Subprocess/decoding failures raise
+`MigrationInspectionError`, distinct from an execution-based compatibility finding.
+
+`analyze_migrations` inspects both releases. Its comparison support preserves the
+inventories and inspection issues in `MigrationAnalysis`. Shared migration keys
+need matching file hashes and declared metadata for an ordinary append-only
+comparison. Removed, edited, squashed/replaced, or unverifiable shared history
+is reported explicitly, with no guessed additions. Identical issues are
+deduplicated; an empty addition list accompanied by issues is not a safety claim.
+
+The core `select_new_migrations` function is pending. Its contract tests require
+valid inventories, unchanged append-only history, full `(app_label, name)`
+identity matching, and preservation of head dependency order without mutating
+inputs. The CLI does not yet invoke static analysis.
+
+Worker and parent-launcher tests use temporary Django 4.2.30/5.2.19 environments;
+release-comparison tests use all three shop cases. They require uv and dependency
+downloads/cache, but no Docker. Tests depending on the selector currently fail
+at its placeholder:
 
 ```bash
 uv run pytest tests/test_static_types.py tests/test_migration_worker.py -q
+uv run pytest tests/test_static_migrations.py tests/test_static_migrations_integration.py -q
 ```
 
 The loader behavior is checked against Django's
