@@ -158,7 +158,24 @@ def select_new_migrations(
     replacement history. Return head records whose full MigrationKey is absent
     from base. Keep their existing dependency order and do not mutate either list.
     """
-    raise NotImplementedError("new migration selection is not implemented")
+    
+    # Validate the supplied inventories, check history, and select new head records.
+
+    MigrationInventory(migrations=base)
+    MigrationInventory(migrations=head)
+
+    problems = history_issues(base, head)
+    if problems:
+        messages = "; ".join(issue.message for issue in problems)
+        raise ValueError(f"Cannot select new migrations: {messages}")
+
+    base_keys = {migration.key for migration in base}
+
+    return [
+        migration
+        for migration in head
+        if migration.key not in base_keys
+    ]
 
 
 def compare_inventories(
