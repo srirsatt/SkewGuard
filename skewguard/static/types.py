@@ -116,3 +116,14 @@ class MigrationInventory(BaseModel):
                 raise ValueError("resolved dependencies must precede their migration")
             seen.add(migration.key)
         return self
+
+
+class MigrationAnalysis(BaseModel):
+    """Two release inventories, selected additions, and retained analysis gaps."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    base: MigrationInventory
+    head: MigrationInventory
+    new_migrations: list[MigrationRecord]
+    issues: list[AnalysisIssue]
