@@ -84,6 +84,9 @@ class AnalysisIssue(BaseModel):
         "rewritten_migration",
         "removed_migration",
         "replacement_migration",
+        "sql_unavailable",
+        "sql_partial",
+        "sql_state_unavailable",
     ]
     message: str = Field(min_length=1)
     migration: MigrationKey | None = None
@@ -127,3 +130,43 @@ class MigrationAnalysis(BaseModel):
     head: MigrationInventory
     new_migrations: list[MigrationRecord]
     issues: list[AnalysisIssue]
+
+
+class MigrationSQL(BaseModel):
+    """SQL collection coverage for one migration, independent of compatibility."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    migration: MigrationKey
+    status: Literal["collected", "partial", "unavailable"]
+    sql: str | None = None
+    detail: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def validate_sql_coverage(self) -> Self:
+        if self.status == "unavailable":
+            if self.sql is not None or self.detail is None:
+                raise ValueError("unavailable SQL requires a detail and no SQL text")
+        elif self.sql is None:
+            raise ValueError("collected or partial SQL requires SQL text")
+        elif self.status == "partial" and self.detail is None:
+            raise ValueError("partial SQL requires a coverage detail")
+        elif self.status == "collected" and self.detail is not None:
+            raise ValueError("collected SQL cannot contain an error detail")
+        return self
+
+
+class SQLExtraction(BaseModel):
+    """Ordered SQL records and analysis gaps, including schema preparation errors."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    results: list[MigrationSQL]
+    issues: list[AnalysisIssue] = Field(default_factory=list[AnalysisIssue])
+
+    @model_validator(mode="after")
+    def validate_unique_migrations(self) -> Self:
+        keys = [result.migration for result in self.results]
+        if len(keys) != len(set(keys)):
+            raise ValueError("duplicate migration in SQL extraction results")
+        return self
