@@ -191,6 +191,16 @@
   enabled, including safe/breaking CLI runs, report output, and resource cleanup.
   No tests were skipped or deselected, and no temporary orchestration replacement
   was used.
+- The static-analysis package now defines validated migration identities, source
+  coordinates, operation metadata, migration records, analysis issues, and a
+  release inventory. Inventories require unique identities and resolved parents
+  before dependents; records retain the complete top-level operation order.
+  File hashes and replacement keys support later history-change handling.
+  Custom operation names and inspection gaps are retained without verdict fields.
+- All 17 static metadata contract tests pass. Project-wide Pyright and Ruff checks
+  for the new package/tests pass. This adds transport records only; the Django
+  metadata worker, inventory comparison, SQL extraction, and code-reference
+  analysis are not implemented yet.
 
 ## In progress
 
@@ -200,6 +210,7 @@
   implemented. Explicit ordering probes and CI remain.
 - Normalization, comparison, fresh-state reproduction, and reports are implemented.
   End-to-end CLI orchestration and saved-report rendering are implemented.
+- Static migration metadata records are implemented; runtime inspection remains.
 
 ## Execution design
 
@@ -213,7 +224,8 @@
 ## Next
 
 - Add explicit ordering probes.
-- Add static migration/code-reference analysis for agent planning.
+- Implement the isolated Django migration-metadata worker, then compare release
+  inventories and extract SQL/code references for agent planning.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
 - Verify and pin agent/MCP dependencies and record the selected APIs in
