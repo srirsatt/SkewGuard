@@ -363,6 +363,62 @@ The loader behavior is checked against Django's
 [migration loader source](https://github.com/django/django/blob/stable/5.2.x/django/db/migrations/loader.py)
 and [operation documentation](https://docs.djangoproject.com/en/5.2/ref/migration-operations/).
 
+## SQL extraction context
+
+`MigrationSQL` and `SQLExtraction` in `skewguard/static/types.py` describe SQL
+coverage separately from compatibility findings. Each migration has `collected`,
+`partial`, or `unavailable` SQL. Partial/unavailable records require a diagnostic;
+an empty SQL string remains valid for a no-op. Repeated migration identities are
+rejected. SQL text is kept as a full script, without splitting on semicolons.
+
+`skewguard/static/_sql_worker.py` boots head's Django against an explicit sandbox
+connection, configured before project settings load. It verifies that the actual
+pending migration plan matches the selected keys, then uses Django's `sqlmigrate`
+command to collect SQL. PostgreSQL is required. It closes connections and keeps
+application output on stderr so stdout remains a JSON protocol.
+
+For multiple pending migrations, SQL for later operations may need constraints
+created by earlier ones. The worker applies each earlier migration to the
+inspection copy before collecting the next migration's SQL. The final migration
+is not applied. The base snapshot must be separate and remains unchanged.
+Prefix advancement executes migration code, including data migrations, inside
+the inspection sandbox. A failed prefix blocks later SQL collection with an
+explicit schema-context issue.
+
+Top-level Python operations are marked partial because their behavior is absent
+from SQL. Callable defaults can be evaluated during SQL generation and are also
+marked partial, since reevaluation may produce different values. Custom top-level
+operations and `SeparateDatabaseAndState` SQL hooks are not collected by this
+first extractor; their migration may still be applied when advancing an earlier
+prefix. This is not a general sandbox for arbitrary Python side effects.
+
+`run_sql_worker` in `skewguard/static/sql.py` validates the release environment,
+passes database credentials through stdin, applies the configured timeout, and
+checks result identities/order. It redacts decoded SQL/diagnostic strings so JSON
+escaping cannot hide an exact password match. Worker startup/protocol failures
+raise `SQLExtractionError`.
+
+`collect_sql` remains the single pending orchestration function. Its contract is
+to validate the analysis, skip database work when there are no selected additions,
+prepare a base-schema snapshot, and run SQL collection on a fresh clone. It must
+preserve metadata issues and convert known setup/worker failures into unavailable
+SQL records. The caller owns the PostgreSQL container lifetime.
+
+These results provide planning context. A collected SQL script or an extraction
+error is not a deploy-window/rollback verdict; compatibility still requires the
+execution matrix and reproduction. SQL extraction is not connected to the CLI
+or saved verification reports yet.
+
+```bash
+uv run pytest tests/test_sql.py -q
+SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_sql_integration.py -q
+```
+
+Tests depending on `collect_sql` fail at its placeholder until it is completed.
+The PostgreSQL cases cover both Django 4.2.30 and 5.2.19, the three shop changes,
+schema advancement for constraint-name resolution, base preservation, callable
+defaults, opaque operations, and failed/mismatched schema contexts.
+
 ## JSON and Markdown reports
 
 `skewguard/report/json_report.py` defines schema version `1`, pinned release
