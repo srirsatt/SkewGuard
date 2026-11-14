@@ -345,15 +345,14 @@ comparison. Removed, edited, squashed/replaced, or unverifiable shared history
 is reported explicitly, with no guessed additions. Identical issues are
 deduplicated; an empty addition list accompanied by issues is not a safety claim.
 
-The core `select_new_migrations` function is pending. Its contract tests require
-valid inventories, unchanged append-only history, full `(app_label, name)`
-identity matching, and preservation of head dependency order without mutating
-inputs. The CLI does not yet invoke static analysis.
+`select_new_migrations` validates both inventories, requires unchanged append-only
+history, and selects full `(app_label, name)` identities absent from base. It
+preserves head dependency order without mutating inputs. The CLI does not yet
+invoke static analysis.
 
 Worker and parent-launcher tests use temporary Django 4.2.30/5.2.19 environments;
 release-comparison tests use all three shop cases. They require uv and dependency
-downloads/cache, but no Docker. Tests depending on the selector currently fail
-at its placeholder:
+downloads/cache, but no Docker:
 
 ```bash
 uv run pytest tests/test_static_types.py tests/test_migration_worker.py -q
