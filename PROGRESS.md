@@ -233,6 +233,26 @@
 - The completed selector passed all 64 static-analysis checks without a temporary
   replacement, including real Django 4.2.30/5.2.19 inspection and all three shop
   release comparisons. Project-wide Pyright and targeted Ruff checks pass.
+- SQL extraction records distinguish collected, partial, and unavailable scripts,
+  with explicit diagnostics and analysis issues. Result identities must be unique;
+  collection coverage does not create compatibility verdicts.
+- `_sql_worker.py` collects head's `sqlmigrate` output against a sandbox configured
+  before project settings load. The pending plan must match the selected keys.
+  It advances only the inspection database between migrations for later
+  constraint introspection and leaves the final migration unapplied.
+- SQL collection retains gaps for Python behavior, callable defaults, custom/
+  wrapped operations, and failed schema advancement. Prefix preparation can
+  execute migration code on the inspection copy; no compatibility conclusion is
+  derived from SQL generation or its failures.
+- `run_sql_worker` validates environment ownership and returned identities/order,
+  enforces the configured timeout, and redacts decoded SQL/diagnostic strings.
+  The `collect_sql` orchestration function remains the sole unimplemented core;
+  its tests define base preparation, snapshot isolation, issue retention, and
+  known-error conversion without applying head work to the base snapshot.
+- Verification with a temporary completed `collect_sql` passed all 104 combined
+  static-analysis/SQL checks. This includes 18 real PostgreSQL cases across Django
+  4.2.30 and 5.2.19. Project-wide Pyright and targeted Ruff checks pass. The
+  checked-in orchestration placeholder still needs completion and a passing run.
 
 ## In progress
 
@@ -243,8 +263,9 @@
 - Normalization, comparison, fresh-state reproduction, and reports are implemented.
   End-to-end CLI orchestration and saved-report rendering are implemented.
 - Static metadata records, the isolated worker, parent launcher, and comparison
-  support are implemented, including the addition selector. SQL extraction, code
-  reference analysis, and CLI integration remain.
+  support are implemented, including the addition selector. SQL records, worker,
+  and launcher are implemented; `collect_sql`, code references, and CLI/report
+  integration remain.
 
 ## Execution design
 
@@ -258,7 +279,8 @@
 ## Next
 
 - Add explicit ordering probes.
-- Extract SQL/code references for agent planning.
+- Complete `collect_sql` and verify SQL extraction orchestration.
+- Add application-code references for agent planning.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
 - Verify and pin agent/MCP dependencies and record the selected APIs in
