@@ -216,6 +216,24 @@
   source hashes, opaque/custom operations, replacement migrations, broken graphs,
   and database-query blocking during settings import and app startup.
   Project-wide Pyright and targeted Ruff checks pass.
+- `inspect_migrations` validates the checkout environment/backend and settings
+  module, invokes the worker with the release interpreter and configured timeout,
+  and validates its JSON as a `MigrationInventory`. Launch failures, timeouts,
+  nonzero child exits, and malformed evidence become `MigrationInspectionError`.
+- `MigrationAnalysis` retains both release inventories, selected additions, and
+  inspection/history issues. History checks identify removed/replaced migrations,
+  edited sources or metadata, and shared records without verifiable file hashes.
+  Unsupported history yields explicit issues and no guessed additions.
+- `compare_inventories` preserves and deduplicates identical analysis issues;
+  `analyze_migrations` inspects both release environments and compares them.
+  `select_new_migrations` remains the single unimplemented core, with failing
+  contract tests until completed. It will validate both inventories and filter
+  by full migration identity while preserving head dependency order.
+- Validation using a temporary completed selector passed all 64 static-analysis
+  checks without Docker. This includes real parent/worker execution on Django
+  4.2.30/5.2.19 and comparison of all three shop releases. Pyright and targeted
+  Ruff checks pass. The checked-in selector still needs completion and its own
+  passing run; the CLI is not connected to static analysis yet.
 
 ## In progress
 
@@ -225,9 +243,9 @@
   implemented. Explicit ordering probes and CI remain.
 - Normalization, comparison, fresh-state reproduction, and reports are implemented.
   End-to-end CLI orchestration and saved-report rendering are implemented.
-- Static metadata records and the isolated Django worker are implemented. The
-  parent launcher, base/head inventory comparison, SQL extraction, and code
-  reference analysis remain. The CLI does not invoke this worker yet.
+- Static metadata records, the isolated worker, parent launcher, and comparison
+  support are implemented. The core addition selector, SQL extraction, code
+  reference analysis, and CLI integration remain.
 
 ## Execution design
 
@@ -241,7 +259,7 @@
 ## Next
 
 - Add explicit ordering probes.
-- Add the parent worker launcher and validated base/head inventory comparison,
+- Complete `select_new_migrations` and verify release inventory comparison,
   then extract SQL/code references for agent planning.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
