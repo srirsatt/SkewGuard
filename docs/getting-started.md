@@ -298,6 +298,52 @@ uv run pytest tests/test_verification.py -q
 SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_verification_integration.py -q
 ```
 
+## Static migration metadata
+
+`skewguard/static/types.py` defines migration identities, source coordinates,
+operation records, history/inspection issues, and dependency-ordered inventories.
+This metadata is planning context, not a compatibility verdict.
+
+`skewguard/static/_migration_worker.py` runs with a target release's interpreter
+and dependencies. It uses only standard-library imports until loading that
+release's Django; SkewGuard and Pydantic need not be installed in the target
+environment. Its JSON output is compatible with `MigrationInventory`.
+
+The worker loads the graph with `MigrationLoader(None)` and follows dependency
+edges rather than filename ordering. It records real migration-class source
+coordinates, file SHA-256 hashes, resolved parents, and declared operation order.
+Since the loader has no database connection, its graph treats migrations as
+unapplied and may resolve replacement nodes. Replacement keys are retained with
+an explicit history issue; this graph is not an applied-migration plan.
+
+Selected built-in field/model operations include rename, add/remove/alter field,
+create/delete/rename model, model options, and table-name changes. Field metadata
+includes selected flags and Python/database default presence. Callable defaults
+are recorded without being called. Custom operations, `RunPython`, `RunSQL`, and
+other opaque operations remain visible with `unsupported_operation` issues.
+Nested operation bodies and SQL/constraint/index internals are not extracted yet.
+Broken dependency graphs and conflicting leaves fail inspection.
+
+Inspection imports project settings, app startup hooks, and migration modules.
+Before settings import, the worker configures Django's connection handler with
+the dummy backend; it also replaces database settings before `django.setup()`.
+Startup work requiring Django database queries fails inspection. This is not a
+general sandbox for arbitrary Python import side effects. Migration operation
+bodies and data-migration functions are not executed by the inspector.
+Module/startup output goes to stderr; stdout contains the JSON inventory.
+
+The parent launcher, release comparison, and CLI integration are pending. The
+worker contract tests execute it directly in temporary Django 4.2.30 and 5.2.19
+environments. They require uv and dependency downloads/cache, but no Docker:
+
+```bash
+uv run pytest tests/test_static_types.py tests/test_migration_worker.py -q
+```
+
+The loader behavior is checked against Django's
+[migration loader source](https://github.com/django/django/blob/stable/5.2.x/django/db/migrations/loader.py)
+and [operation documentation](https://docs.djangoproject.com/en/5.2/ref/migration-operations/).
+
 ## JSON and Markdown reports
 
 `skewguard/report/json_report.py` defines schema version `1`, pinned release
