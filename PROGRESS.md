@@ -198,9 +198,24 @@
   File hashes and replacement keys support later history-change handling.
   Custom operation names and inspection gaps are retained without verdict fields.
 - All 17 static metadata contract tests pass. Project-wide Pyright and Ruff checks
-  for the new package/tests pass. This adds transport records only; the Django
-  metadata worker, inventory comparison, SQL extraction, and code-reference
-  analysis are not implemented yet.
+  for the new package/tests pass. These tests cover the transport records;
+  isolated Django worker coverage is recorded below.
+- The isolated migration worker now loads Django's active dependency graph with
+  `MigrationLoader(None)`, orders records by graph dependencies, and emits JSON
+  matching the inventory schema. It captures source coordinates/file hashes,
+  selected built-in model/field operation metadata, default presence, and
+  replacement keys. Custom/opaque operations remain visible as analysis issues.
+- Metadata inspection configures Django's connection handler with the dummy
+  backend before project settings import, then overrides database settings before
+  application startup. It imports project modules but does not apply migration
+  operations, run data-migration functions, or evaluate callable field defaults.
+  Import/startup output is redirected to stderr to preserve the JSON protocol.
+- Twenty worker cases pass against separate Django 4.2.30 and 5.2.19 environments.
+  Together with the schema tests, all 37 metadata checks pass without Docker.
+  Coverage includes all three shop changes, cross-app dependency resolution,
+  source hashes, opaque/custom operations, replacement migrations, broken graphs,
+  and database-query blocking during settings import and app startup.
+  Project-wide Pyright and targeted Ruff checks pass.
 
 ## In progress
 
@@ -210,7 +225,9 @@
   implemented. Explicit ordering probes and CI remain.
 - Normalization, comparison, fresh-state reproduction, and reports are implemented.
   End-to-end CLI orchestration and saved-report rendering are implemented.
-- Static migration metadata records are implemented; runtime inspection remains.
+- Static metadata records and the isolated Django worker are implemented. The
+  parent launcher, base/head inventory comparison, SQL extraction, and code
+  reference analysis remain. The CLI does not invoke this worker yet.
 
 ## Execution design
 
@@ -224,8 +241,8 @@
 ## Next
 
 - Add explicit ordering probes.
-- Implement the isolated Django migration-metadata worker, then compare release
-  inventories and extract SQL/code references for agent planning.
+- Add the parent worker launcher and validated base/head inventory comparison,
+  then extract SQL/code references for agent planning.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
 - Verify and pin agent/MCP dependencies and record the selected APIs in
