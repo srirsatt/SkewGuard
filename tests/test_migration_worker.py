@@ -15,6 +15,7 @@ from skewguard.exec.envs import (
     install_dependencies,
 )
 from skewguard.exec.runner import migration_environment
+from skewguard.static.migrations import inspect_migrations
 from skewguard.static.types import MigrationInventory, MigrationKey
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -79,6 +80,23 @@ def inventory(project: tuple[PythonEnvironment, Path]) -> MigrationInventory:
     result = run_worker(project)
     assert result.returncode == 0, result.stderr
     return MigrationInventory.model_validate_json(result.stdout)
+
+
+def test_parent_launcher_validates_real_worker_output(
+    project: tuple[PythonEnvironment, Path],
+) -> None:
+    environment, backend = project
+    config = RunConfig(
+        repo_path=environment.checkout,
+        base_ref="base",
+        head_ref="head",
+        backend_path=backend.relative_to(environment.checkout),
+    )
+
+    result = inspect_migrations(config, environment, settings_module="shop.settings")
+
+    assert result == inventory(project)
+    assert result.migrations[0].key.app_label == "catalog"
 
 
 def write_migration(backend: Path, name: str, source: str) -> Path:
