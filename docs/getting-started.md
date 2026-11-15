@@ -398,11 +398,11 @@ checks result identities/order. It redacts decoded SQL/diagnostic strings so JSO
 escaping cannot hide an exact password match. Worker startup/protocol failures
 raise `SQLExtractionError`.
 
-`collect_sql` remains the single pending orchestration function. Its contract is
-to validate the analysis, skip database work when there are no selected additions,
-prepare a base-schema snapshot, and run SQL collection on a fresh clone. It must
-preserve metadata issues and convert known setup/worker failures into unavailable
-SQL records. The caller owns the PostgreSQL container lifetime.
+`collect_sql` validates the analysis, skips database work when there are no
+selected additions, prepares a base-schema snapshot, and runs SQL collection on
+a fresh clone. It preserves metadata issues and converts known database,
+migration, and worker failures into unavailable SQL records. The caller owns
+the PostgreSQL container lifetime.
 
 These results provide planning context. A collected SQL script or an extraction
 error is not a deploy-window/rollback verdict; compatibility still requires the
@@ -414,7 +414,6 @@ uv run pytest tests/test_sql.py -q
 SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_sql_integration.py -q
 ```
 
-Tests depending on `collect_sql` fail at its placeholder until it is completed.
 The PostgreSQL cases cover both Django 4.2.30 and 5.2.19, the three shop changes,
 schema advancement for constraint-name resolution, base preservation, callable
 defaults, opaque operations, and failed/mismatched schema contexts.
