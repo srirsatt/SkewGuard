@@ -265,6 +265,15 @@
   recognizes attribute, ORM keyword, and contextual string references and returns
   no match for unsupported nodes. Project-wide Pyright and Ruff for the source
   module pass; authored formatting has been retained.
+- `StaticContext` groups migration analysis, SQL coverage, and separate base/head
+  source scans for planning. Validation requires SQL identities/order to match
+  selected additions and rejects references to unselected migrations.
+- Static-context support tests cover JSON persistence, mismatched component
+  identities, retained SQL/source gaps, rewritten history, fatal inspection
+  errors, and release-specific reference evidence. Seven model checks pass with
+  the checked-in code. A temporary collector passes all 122 selected static unit
+  checks; `collect_static_context` remains unimplemented. Project-wide Pyright
+  and targeted Ruff checks pass.
 
 ## In progress
 
@@ -277,7 +286,8 @@
 - Static metadata records, the isolated worker, parent launcher, and comparison
   support are implemented, including the addition selector. SQL records, worker,
   launcher, and orchestration are implemented. Code-reference scanning and its
-  AST field matcher are implemented. CLI/report and agent-planning integration
+  AST field matcher are implemented. The combined planning-context model and
+  tests are present; its collector, CLI/report, and agent-planning integration
   remain.
 
 ## Execution design
@@ -292,6 +302,7 @@
 ## Next
 
 - Add explicit ordering probes.
+- Complete combined static-context collection.
 - Integrate static-analysis context with agent planning and reports.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
