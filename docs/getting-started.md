@@ -430,7 +430,6 @@ The matcher supports attribute access, ORM keyword arguments, ORM field strings,
 `Meta.ordering`, and serializer `Meta.fields`. References retain the migration
 target, repository-relative file/line, enclosing class/function, and a bounded
 statement snippet. Source-reading and parsing failures remain analysis issues.
-The core matcher is currently pending implementation; see `PROGRESS.md`.
 
 Raw query literals retain their original text. Pinned
 [SQLGlot 30.31.0](https://pypi.org/project/sqlglot/30.31.0/) parses them with
