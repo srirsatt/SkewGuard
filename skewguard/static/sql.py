@@ -161,4 +161,41 @@ def collect_sql(
     into unavailable_sql results, redacting the server password. Container lifetime
     belongs to the caller; the original base snapshot must never receive head work.
     """
-    raise NotImplementedError("SQL collection orchestration is not implemented")
+    # connector for database helpers to SQL collection
+    
+    validate_analysis(analysis)
+    if not analysis.new_migrations:
+        return SQLExtraction(results = [], issues= list(analysis.issues))
+        # validate SQL select
+
+    # empty database baseline, old migration apply + collect
+    try:
+        baseline = db.clone_database(config, server)
+        runner.run_migrations(
+            config, base, baseline, settings_module=settings_module 
+        )
+
+        inspection = db.clone_database(
+            config, server, source=baseline.dbname
+        )
+        extraction = run_sql_worker(
+            config, head, inspection, analysis.new_migrations, settings_module=settings_module,
+        )
+    except (
+        db.DatabaseSetupError,
+        runner.MigrationError,
+        SQLExtractionError,
+    ) as error:
+        detail = runner.redact_database_password(
+            f"{type(error).__name__}: {error}", server
+        )
+        return unavailable_sql(
+            analysis.new_migrations, detail, issues=analysis.issues
+        )
+
+    return SQLExtraction(
+        results = extraction.results,
+        issues = [*analysis.issues, *extraction.issues]
+    )
+
+
