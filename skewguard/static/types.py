@@ -235,3 +235,27 @@ class CodeReferenceScan(BaseModel):
     references: list[CodeReference]
     sql_literals: list[SQLLiteral]
     issues: list[AnalysisIssue]
+
+
+class StaticContext(BaseModel):
+    """Portable planning context; static observations never assign a verdict."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    migrations: MigrationAnalysis
+    sql: SQLExtraction
+    base_code: CodeReferenceScan
+    head_code: CodeReferenceScan
+
+    @model_validator(mode="after")
+    def validate_component_identities(self) -> Self:
+        """Require SQL and code references to use the selected migration identities."""
+        selected = [record.key for record in self.migrations.new_migrations]
+        if [result.migration for result in self.sql.results] != selected:
+            raise ValueError(
+                "SQL results must match selected migration identities/order"
+            )
+        for scan in (self.base_code, self.head_code):
+            if any(ref.target.migration not in selected for ref in scan.references):
+                raise ValueError("code references must target selected migrations")
+        return self
