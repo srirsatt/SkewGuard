@@ -11,6 +11,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "psycopg[binary]==3.3.7",
     "pydantic==2.14.1",
+    "sqlglot==30.31.0",
     "testcontainers[postgres]==4.15.0",
     "typer==0.27.3",
 ]
