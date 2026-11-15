@@ -452,6 +452,24 @@ create compatibility verdicts, and this API is not connected to the CLI yet.
 uv run pytest tests/test_code_refs.py -q
 ```
 
+## Combined static context
+
+`StaticContext` groups migration metadata, SQL coverage, and separate base/head
+source scans. Its validation requires SQL results to cover selected additions in
+order and rejects code references to unselected migrations. Nested issues retain
+their stage and release context; missing SQL can coexist with useful references.
+The model contains planning observations, without compatibility verdict fields.
+
+`collect_static_context` in `skewguard/static/context.py` is the pending assembly
+entry point. It uses the existing metadata/SQL/source helpers and receives
+caller-owned release environments and a disposable PostgreSQL server. Fatal
+metadata inspection failures propagate instead of producing empty context.
+The CLI and saved execution reports do not include this context yet.
+
+```bash
+uv run pytest tests/test_static_context.py -q
+```
+
 ## JSON and Markdown reports
 
 `skewguard/report/json_report.py` defines schema version `1`, pinned release
