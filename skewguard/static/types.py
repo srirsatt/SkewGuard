@@ -1,4 +1,4 @@
-"""Validated migration metadata shared across isolated Django worker processes."""
+"""Validated migration metadata, SQL coverage, and source-reference candidates."""
 
 from typing import Literal, Self
 
@@ -87,6 +87,10 @@ class AnalysisIssue(BaseModel):
         "sql_unavailable",
         "sql_partial",
         "sql_state_unavailable",
+        "code_unreadable",
+        "code_parse_error",
+        "dynamic_reference",
+        "sql_parse_error",
     ]
     message: str = Field(min_length=1)
     migration: MigrationKey | None = None
@@ -170,3 +174,64 @@ class SQLExtraction(BaseModel):
         if len(keys) != len(set(keys)):
             raise ValueError("duplicate migration in SQL extraction results")
         return self
+
+
+class ReferenceTarget(BaseModel, frozen=True):
+    """Names affected by one migration; these are not resolved database columns."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    migration: MigrationKey
+    model_name: str = Field(min_length=1)
+    field_names: tuple[str, ...] = ()
+
+
+type FieldReferenceKind = Literal[
+    "attribute", "orm_keyword", "orm_string", "ordering", "serializer_field"
+]
+
+
+class CodeReference(BaseModel):
+    """A candidate source reference, without inferred model binding or a verdict."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    target: ReferenceTarget
+    source: SourceLocation
+    kind: FieldReferenceKind | Literal["model", "raw_sql"]
+    field_name: str | None = None
+    snippet: str = Field(min_length=1)
+    scope: str | None = None
+
+    @model_validator(mode="after")
+    def validate_reference(self) -> Self:
+        if self.source.line is None:
+            raise ValueError("a code reference requires a source line")
+        if self.kind == "model":
+            if self.field_name is not None:
+                raise ValueError("a model reference cannot name a field")
+        elif self.field_name not in self.target.field_names:
+            raise ValueError("a field reference must name a target field")
+        return self
+
+
+class SQLLiteral(BaseModel):
+    """Original SQL text and parsed identifiers, retaining unsupported syntax."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    source: SourceLocation
+    text: str
+    columns: tuple[str, ...]
+    tables: tuple[str, ...]
+    parse_error: str | None = Field(default=None, min_length=1)
+
+
+class CodeReferenceScan(BaseModel):
+    """Candidate references, SQL literals, and explicit source-analysis gaps."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    references: list[CodeReference]
+    sql_literals: list[SQLLiteral]
+    issues: list[AnalysisIssue]
