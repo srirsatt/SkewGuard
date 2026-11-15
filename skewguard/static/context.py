@@ -26,5 +26,34 @@ def collect_static_context(
     The caller owns worktrees, environments, and the PostgreSQL server lifetime.
     This function does not execute probes, compare outcomes, or assign verdicts.
     """
-    # TODO: Gather the existing analysis helpers into one StaticContext.
-    raise NotImplementedError("static context collection is not implemented")
+    # connector for all helpers, ast and SQL -> into a context file
+
+    analysis = migrations.analyze_migrations(
+        config, base, head, settings_module=settings_module
+    )
+
+    scripts = sql.collect_sql(
+        config,
+        base,
+        head,
+        server,
+        analysis,
+        settings_module=settings_module
+    )
+    base_code = code_refs.scan_code_references(
+        config, base.checkout, analysis,
+    )
+
+    head_code = code_refs.scan_code_references(
+        config,
+        head.checkout,
+        analysis,
+    )
+
+    return StaticContext(
+        migrations=analysis,
+        sql=scripts,
+        base_code=base_code,
+        head_code=head_code,
+    )
+
