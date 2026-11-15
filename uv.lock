@@ -366,6 +366,7 @@ source = { editable = "." }
 dependencies = [
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
+    { name = "sqlglot" },
     { name = "testcontainers" },
     { name = "typer" },
 ]
@@ -381,6 +382,7 @@ dev = [
 requires-dist = [
     { name = "psycopg", extras = ["binary"], specifier = "==3.3.7" },
     { name = "pydantic", specifier = "==2.14.1" },
+    { name = "sqlglot", specifier = "==30.31.0" },
     { name = "testcontainers", extras = ["postgres"], specifier = "==4.15.0" },
     { name = "typer", specifier = "==0.27.3" },
 ]
@@ -390,6 +392,15 @@ dev = [
     { name = "pyright", specifier = "==1.1.414" },
     { name = "pytest", specifier = "==9.1.1" },
     { name = "ruff", specifier = "==0.17.1" },
+]
+
+[[package]]
+name = "sqlglot"
+version = "30.31.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/89/de/aa6cc05536bec18c7ad7d3def4d724d1d7086cbc9e96dc1e39fdaf83965d/sqlglot-30.31.0.tar.gz", hash = "sha256:448404736cb0ed1335774e34399a3a99d28274778fb718877556fb7d475d8808", size = 6198638, upload-time = "2026-11-10T18:02:51.359Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/92/68/e351109f7732f193133c67fbf104178f79b534a925db8f69c074fd190c2c/sqlglot-30.31.0-py3-none-any.whl", hash = "sha256:51a876a43edecf8ee6fd4c872cf6713d899c4234256bba0be96a8c7c8d8781e8", size = 811981, upload-time = "2026-11-10T18:02:49.108Z" },
 ]
 
 [[package]]
