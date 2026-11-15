@@ -246,13 +246,13 @@
   derived from SQL generation or its failures.
 - `run_sql_worker` validates environment ownership and returned identities/order,
   enforces the configured timeout, and redacts decoded SQL/diagnostic strings.
-  The `collect_sql` orchestration function remains the sole unimplemented core;
-  its tests define base preparation, snapshot isolation, issue retention, and
-  known-error conversion without applying head work to the base snapshot.
-- Verification with a temporary completed `collect_sql` passed all 104 combined
-  static-analysis/SQL checks. This includes 18 real PostgreSQL cases across Django
-  4.2.30 and 5.2.19. Project-wide Pyright and targeted Ruff checks pass. The
-  checked-in orchestration placeholder still needs completion and a passing run.
+  `collect_sql` prepares base, clones the snapshot for head's SQL worker, preserves
+  metadata/SQL issues, and converts known database/migration/worker failures into
+  extraction gaps. Empty selections preserve issues without database work.
+- The completed orchestration passed all 104 static-analysis/SQL checks without
+  a temporary replacement, including 18 real PostgreSQL cases on Django 4.2.30
+  and 5.2.19. Pyright passes. The SQL module retains a line-length Ruff flag in
+  authored code; formatting has been preserved.
 
 ## In progress
 
@@ -264,7 +264,7 @@
   End-to-end CLI orchestration and saved-report rendering are implemented.
 - Static metadata records, the isolated worker, parent launcher, and comparison
   support are implemented, including the addition selector. SQL records, worker,
-  and launcher are implemented; `collect_sql`, code references, and CLI/report
+  launcher, and orchestration are implemented. Code references and CLI/report
   integration remain.
 
 ## Execution design
@@ -279,7 +279,6 @@
 ## Next
 
 - Add explicit ordering probes.
-- Complete `collect_sql` and verify SQL extraction orchestration.
 - Add application-code references for agent planning.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
