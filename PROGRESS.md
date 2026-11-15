@@ -253,6 +253,17 @@
   a temporary replacement, including 18 real PostgreSQL cases on Django 4.2.30
   and 5.2.19. Pyright passes. The SQL module retains a line-length Ruff flag in
   authored code; formatting has been preserved.
+- SQLGlot 30.31.0 is pinned for PostgreSQL SQL-literal parsing. Code-reference
+  records preserve migration/model targets, source coordinates, bounded snippets,
+  scopes, parsed SQL identifiers, and source-analysis gaps without verdict fields.
+- Code-reference support derives targets from selected operations, scans backend
+  Python source without importing it, excludes dependencies/migrations/symlinks,
+  and retains parse/read failures and dynamic query gaps. Both field-rename names
+  are retained; custom database-column and model-receiver binding are not inferred.
+- Ten code-reference support checks pass with the checked-in code. A temporary
+  matcher passed all 111 selected static unit checks, including 50 source-scanner
+  cases; the checked-in `match_field_node` remains unimplemented. Project-wide
+  Pyright and Ruff for the new/updated source-analysis files pass.
 
 ## In progress
 
@@ -264,8 +275,8 @@
   End-to-end CLI orchestration and saved-report rendering are implemented.
 - Static metadata records, the isolated worker, parent launcher, and comparison
   support are implemented, including the addition selector. SQL records, worker,
-  launcher, and orchestration are implemented. Code references and CLI/report
-  integration remain.
+  launcher, and orchestration are implemented. Code-reference support/tests are
+  present; the core AST field matcher and CLI/report integration remain.
 
 ## Execution design
 
@@ -279,7 +290,7 @@
 ## Next
 
 - Add explicit ordering probes.
-- Add application-code references for agent planning.
+- Complete the AST field matcher and verify source references for agent planning.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
 - Verify and pin agent/MCP dependencies and record the selected APIs in
