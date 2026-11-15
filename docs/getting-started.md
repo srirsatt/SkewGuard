@@ -418,6 +418,41 @@ The PostgreSQL cases cover both Django 4.2.30 and 5.2.19, the three shop changes
 schema advancement for constraint-name resolution, base preservation, callable
 defaults, opaque operations, and failed/mismatched schema contexts.
 
+## Application source references
+
+`skewguard/static/code_refs.py` scans a checkout's backend using Python's AST,
+without importing application modules or requiring that checkout's dependencies.
+`reference_targets` groups selected migration operations by migration and model,
+retaining both names of a renamed field/model. The same analysis can be used to
+scan the base and head checkouts separately with `scan_code_references`.
+
+The matcher supports attribute access, ORM keyword arguments, ORM field strings,
+`Meta.ordering`, and serializer `Meta.fields`. References retain the migration
+target, repository-relative file/line, enclosing class/function, and a bounded
+statement snippet. Source-reading and parsing failures remain analysis issues.
+The core matcher is currently pending implementation; see `PROGRESS.md`.
+
+Raw query literals retain their original text. Pinned
+[SQLGlot 30.31.0](https://pypi.org/project/sqlglot/30.31.0/) parses them with
+`read="postgres"`; `find_all(exp.Column)` and `find_all(exp.Table)` collect
+identifiers following the [official metadata API](https://sqlglot.com/sqlglot.html#metadata).
+Parser failures and opaque commands remain visible. Nonliteral SQL arguments,
+dynamic ORM field arguments, and expanded ORM keyword arguments produce gaps;
+the scanner does not execute or propagate Python values to resolve them.
+
+Dependency directories and migrations are excluded, including custom migration
+paths identified by the inventories. Symlinked source is excluded with a gap.
+These are name-based candidates: receiver types, import aliases, custom
+`db_column` mappings, table ownership, and wildcard SQL columns are not resolved.
+An ordinary label string is ignored by the field matcher. A SQL-shaped assigned
+literal can be retained even when its use cannot be established. SQLGlot parsing
+does not establish that PostgreSQL would accept the query. References do not
+create compatibility verdicts, and this API is not connected to the CLI yet.
+
+```bash
+uv run pytest tests/test_code_refs.py -q
+```
+
 ## JSON and Markdown reports
 
 `skewguard/report/json_report.py` defines schema version `1`, pinned release
