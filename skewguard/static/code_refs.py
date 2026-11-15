@@ -188,8 +188,36 @@ def match_field_node(
     through field_matches; ignore unrelated nodes and ordinary string labels.
     Names are candidates only: this function does not infer receiver types.
     """
-    # TODO: Implement field-reference matching for the supported AST node shapes.
-    raise NotImplementedError("field-reference matching is not implemented")
+    value: str 
+    kind: FieldReferenceKind
+
+    if isinstance(node, ast.Attribute):
+        value, kind = node.attr, "attribute"
+
+    elif isinstance(node, ast.keyword) and node.arg is not None:
+        owner = parents.get(node)
+        if not isinstance(owner, ast.Call):
+            return []
+        name = call_name(owner.func)
+        if (name not in ORM_KEYWORD_CALLS and name.casefold() != target.model_name):
+            return []
+
+        value, kind = node.arg, "orm_keyword"
+    elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+        literal_kind = literal_reference_kind(node, parents)
+
+        if literal_kind is None:
+            return []
+        
+        value, kind = node.value, literal_kind
+    else:
+        return []
+    
+    return [
+        (field, kind)
+        for field in sorted(target.field_names)
+        if field_matches(value, field)
+    ]
 
 
 def parse_sql_literal(text: str, source: SourceLocation) -> SQLLiteral:
