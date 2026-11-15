@@ -460,7 +460,7 @@ order and rejects code references to unselected migrations. Nested issues retain
 their stage and release context; missing SQL can coexist with useful references.
 The model contains planning observations, without compatibility verdict fields.
 
-`collect_static_context` in `skewguard/static/context.py` is the pending assembly
+`collect_static_context` in `skewguard/static/context.py` is the assembly
 entry point. It uses the existing metadata/SQL/source helpers and receives
 caller-owned release environments and a disposable PostgreSQL server. Fatal
 metadata inspection failures propagate instead of producing empty context.
