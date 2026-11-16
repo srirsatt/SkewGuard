@@ -5,7 +5,7 @@
 | Milestone | Status |
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
-| 2: graph and generation | API/dependency setup prepared; graph and agents not implemented |
+| 2: graph and generation | State schema and graph-update tests implemented; workflow and agents remain |
 | 3: comparison, triage, reports, CLI | Deterministic verification, reports, and CLI implemented; triage remains |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
@@ -285,7 +285,18 @@
   Dependency installation and API-signature inspection made no model calls or
   trace uploads. The dependency baseline passes 357 existing tests with tracing
   disabled; 35 PostgreSQL/Docker tests were explicitly disabled and skipped.
-  Project-wide Pyright passes. Graph/state/agent implementation remains pending.
+  Project-wide Pyright passes. Production graph/agent implementation remains pending.
+- `graph/state.py` defines `RunState` for prepared runs: configuration, Django
+  settings, pinned commit IDs, optional seed fixture, and phase outputs for static
+  context, execution evidence, and the final report. Live resources remain outside
+  the saved state schema. Commit fields validate SHA shape; resolution still
+  belongs to worktree preparation.
+- Seven graph-state tests pass using the pinned LangGraph runtime. Tests verify
+  partial updates across a three-node fixture workflow, preservation of initial
+  inputs and typed earlier outputs, full nested JSON round trips, and rejection
+  of invalid inputs before node execution. This fixture workflow does not run
+  application probes or create PostgreSQL resources. Targeted Ruff and project-wide
+  Pyright pass; graph tests narrowly exempt upstream annotation diagnostics.
 
 ## In progress
 
@@ -301,8 +312,8 @@
   AST field matcher are implemented. The combined planning-context model,
   collector, and tests are implemented. CLI/report and agent-planning integration
   remain.
-- LangGraph state, runtime-resource handling, nodes, and edges remain to be
-  implemented using the pinned API baseline.
+- LangGraph state is implemented. Runtime-resource handling and production nodes,
+  edges, checkpoint persistence, and progress streaming remain to be implemented.
 
 ## Execution design
 
@@ -320,7 +331,7 @@
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
 - Select and pin the model-provider adapter before implementing model calls.
-- Define graph state and runtime resources, then connect the initial workflow.
+- Define runtime resources, then connect the initial workflow to graph state.
 
 ## Open questions
 
