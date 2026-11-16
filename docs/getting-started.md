@@ -470,6 +470,25 @@ The CLI and saved execution reports do not include this context yet.
 uv run pytest tests/test_static_context.py -q
 ```
 
+## Workflow state
+
+`skewguard/graph/state.py` defines a Pydantic `RunState` containing run inputs,
+pinned base/head SHAs, and optional static context, verification evidence, and
+report outputs. Initial state is constructed after release preparation resolves
+the Git refs. Output fields start as `None` until their producing phase completes.
+Commit validation checks SHA format; worktree preparation resolves actual refs.
+
+Nodes return partial updates for the fields they produce. Other fields remain
+available to later nodes. Direct state attribute reassignment is disabled; live
+database connections and container objects belong to runtime resources outside
+saved state. A JSON round trip preserves nested evidence types, but does not
+restore application resources. Checkpoint persistence and production graph/CLI
+integration remain pending.
+
+```bash
+LANGSMITH_TRACING=false uv run pytest tests/test_graph_state.py -q
+```
+
 ## JSON and Markdown reports
 
 `skewguard/report/json_report.py` defines schema version `1`, pinned release
