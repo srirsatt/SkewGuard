@@ -5,18 +5,21 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock
 
 import pytest
+from langgraph.types import GraphOutput
 from pydantic import SecretStr
 from typer.testing import CliRunner
 
 import skewguard.cli as cli
 from skewguard.config import RunConfig
-from skewguard.exec import verify
 from skewguard.exec.db import DatabaseConnection
 from skewguard.exec.envs import EnvironmentSetupError, PythonEnvironment
 from skewguard.exec.probes import ProbeExecutionError
 from skewguard.exec.worktree import CheckoutPair
+from skewguard.graph.runtime import RunResources
+from skewguard.graph.state import RunState
 from skewguard.report.json_report import RunReport, read_json_report, write_json_report
 from skewguard.report.markdown import render_markdown
+from skewguard.static.migrations import MigrationInspectionError
 
 runner = CliRunner()
 
@@ -137,14 +140,16 @@ def test_settings_can_come_from_the_django_environment_variable(
     assert execute.call_args.kwargs["settings_module"] == "shop.settings"
 
 
+@pytest.mark.parametrize("error_type", [ProbeExecutionError, MigrationInspectionError])
 def test_execution_errors_have_a_distinct_exit_code_and_do_not_create_reports(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    error_type: type[RuntimeError],
 ) -> None:
     monkeypatch.setattr(
         cli,
         "run_verification",
-        Mock(side_effect=ProbeExecutionError("worker unavailable")),
+        Mock(side_effect=error_type("worker unavailable")),
     )
 
     result = runner.invoke(cli.app, arguments(tmp_path))
@@ -186,7 +191,9 @@ def test_report_command_rejects_invalid_json_and_input_overwrite(
     assert path.read_text(encoding="utf-8") == "not JSON"
 
 
-@pytest.mark.parametrize("failure", [None, "install", "execute"])
+@pytest.mark.parametrize(
+    "failure", [None, "install", "inspect", "execute", "missing_report"]
+)
 def test_orchestration_owns_both_environments_and_cleans_resources_after_errors(
     report_factory: Callable[[str], RunReport],
     tmp_path: Path,
@@ -228,19 +235,40 @@ def test_orchestration_owns_both_environments_and_cleans_resources_after_errors(
         else None
     )
     execute = Mock(
-        side_effect=ProbeExecutionError("execution failed")
-        if failure == "execute"
-        else None,
-        return_value=sample.verification,
+        side_effect=(
+            ProbeExecutionError("execution failed") if failure == "execute"
+            else MigrationInspectionError("inspection failed") if failure == "inspect"
+            else None
+        ),
+        return_value=GraphOutput(
+            value=RunState(
+                config=config,
+                settings_module="shop.settings",
+                base_sha=checkouts.base_sha,
+                head_sha=checkouts.head_sha,
+                seed_fixture="products",
+                verification=sample.verification,
+                report=None if failure == "missing_report" else sample,
+            )
+        ),
     )
     monkeypatch.setattr(cli.worktree, "managed_worktrees", Mock(return_value=worktrees))
     monkeypatch.setattr(cli.db, "managed_postgres", start_database)
     monkeypatch.setattr(cli.envs, "create_environment", create)
     monkeypatch.setattr(cli.envs, "install_dependencies", install)
-    monkeypatch.setattr(verify, "verify_matrix", execute)
+    graph = Mock()
+    graph.invoke = execute
+    monkeypatch.setattr(cli, "build_graph", Mock(return_value=graph))
 
     if failure is not None:
-        with pytest.raises((EnvironmentSetupError, ProbeExecutionError)):
+        with pytest.raises(
+            (
+                EnvironmentSetupError,
+                ProbeExecutionError,
+                MigrationInspectionError,
+                ValueError,
+            )
+        ):
             cli.run_verification(
                 config, settings_module="shop.settings", seed_fixture="products"
             )
@@ -256,11 +284,22 @@ def test_orchestration_owns_both_environments_and_cleans_resources_after_errors(
         assert [call.args for call in install.call_args_list] == [
             (config, environment) for environment in environments
         ]
-        assert execute.call_args.args == (config, *environments, server)
-        assert execute.call_args.kwargs == {
-            "settings_module": "shop.settings",
-            "seed_fixture": "products",
-        }
+        initial = execute.call_args.args[0]
+        assert isinstance(initial, RunState)
+        assert initial.config == config
+        assert initial.base_sha == checkouts.base_sha
+        assert initial.head_sha == checkouts.head_sha
+        assert initial.settings_module == "shop.settings"
+        assert initial.seed_fixture == "products"
+        assert initial.verification is None
+        assert initial.report is None
+        resources = execute.call_args.kwargs["context"]
+        assert isinstance(resources, RunResources)
+        assert resources.checkouts == checkouts
+        assert resources.base == environments[0]
+        assert resources.head == environments[1]
+        assert resources.server == server
+        assert execute.call_args.kwargs["version"] == "v2"
     worktrees.__exit__.assert_called_once()
     if failure == "install":
         start_database.assert_not_called()
