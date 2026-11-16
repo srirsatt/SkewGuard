@@ -5,7 +5,7 @@
 | Milestone | Status |
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
-| 2: graph and generation | Not started |
+| 2: graph and generation | API/dependency setup prepared; graph and agents not implemented |
 | 3: comparison, triage, reports, CLI | Deterministic verification, reports, and CLI implemented; triage remains |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
@@ -276,6 +276,16 @@
   and separate release scans, preserving unavailable SQL and nested issues.
   Project-wide Pyright and targeted Ruff checks pass; authored formatting is
   retained.
+- Current stable LangGraph, LangChain, LangChain Core, LangSmith, SQLite
+  checkpoint, and official MCP SDK dependencies are verified and pinned.
+  `docs/api-notes.md` records the APIs, state/runtime separation, typed v2
+  streaming, structured agent output, middleware, checkpointing, and MCP v2.
+  Provider adapters are researched; selection and installation remain pending.
+- `.env.example` documents provider and LangSmith key names without credentials.
+  Dependency installation and API-signature inspection made no model calls or
+  trace uploads. The dependency baseline passes 357 existing tests with tracing
+  disabled; 35 PostgreSQL/Docker tests were explicitly disabled and skipped.
+  Project-wide Pyright passes. Graph/state/agent implementation remains pending.
 
 ## In progress
 
@@ -291,6 +301,8 @@
   AST field matcher are implemented. The combined planning-context model,
   collector, and tests are implemented. CLI/report and agent-planning integration
   remain.
+- LangGraph state, runtime-resource handling, nodes, and edges remain to be
+  implemented using the pinned API baseline.
 
 ## Execution design
 
@@ -307,8 +319,8 @@
 - Integrate static-analysis context with agent planning and reports.
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
-- Verify and pin agent/MCP dependencies and record the selected APIs in
-  `docs/api-notes.md` before adding integration code.
+- Select and pin the model-provider adapter before implementing model calls.
+- Define graph state and runtime resources, then connect the initial workflow.
 
 ## Open questions
 
