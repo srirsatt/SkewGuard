@@ -1,16 +1,19 @@
-"""Shared prepared application releases for Postgres integration tests."""
+"""Shared application releases, report evidence, and graph resource layouts."""
 
 import shutil
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from pydantic import SecretStr
 
 from skewguard.config import RunConfig
+from skewguard.exec.db import DatabaseConnection
 from skewguard.exec.diff import compare_matrix
 from skewguard.exec.envs import (
     PythonEnvironment,
     create_environment,
+    environment_python,
     install_dependencies,
 )
 from skewguard.exec.types import (
@@ -23,9 +26,48 @@ from skewguard.exec.types import (
 )
 from skewguard.exec.verify import classify_reproductions
 from skewguard.exec.worktree import CheckoutPair
+from skewguard.graph.runtime import RunResources
+from skewguard.graph.state import RunState
 from skewguard.report.json_report import RunReport, build_report
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture
+def graph_inputs(tmp_path: Path) -> tuple[RunState, RunResources]:
+    """Prepared resource layout for graph tests that mock application work."""
+    environments: list[PythonEnvironment] = []
+    for label in ("base", "head"):
+        checkout = tmp_path / label
+        (checkout / "backend").mkdir(parents=True)
+        venv = checkout / ".skewguard-venv"
+        python = environment_python(venv)
+        python.parent.mkdir(parents=True)
+        python.write_text("", encoding="utf-8")
+        (venv / "pyvenv.cfg").write_text("", encoding="utf-8")
+        environments.append(PythonEnvironment(
+            checkout=checkout, venv=venv, python=python,
+        ))
+    config = RunConfig(
+        repo_path=tmp_path, base_ref="release-v1", head_ref="release-v2",
+        backend_path=Path("backend"),
+    )
+    checkouts = CheckoutPair(
+        base=environments[0].checkout, head=environments[1].checkout,
+        base_sha="a" * 40, head_sha="b" * 40,
+    )
+    return (
+        RunState(config=config, settings_module="shop.settings",
+                 base_sha=checkouts.base_sha, head_sha=checkouts.head_sha,
+                 seed_fixture="products"),
+        RunResources(
+            checkouts=checkouts, base=environments[0], head=environments[1],
+            server=DatabaseConnection(
+                host="localhost", port=5432, username="test", dbname="postgres",
+                password=SecretStr("runtime-only-database-credential"),
+            ),
+        ),
+    )
 
 
 @pytest.fixture(scope="session")
