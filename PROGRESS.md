@@ -5,7 +5,7 @@
 | Milestone | Status |
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
-| 2: graph and generation | State schema and graph-update tests implemented; workflow and agents remain |
+| 2: graph and generation | State, runtime resources, and static-analysis node implemented; workflow and agents remain |
 | 3: comparison, triage, reports, CLI | Deterministic verification, reports, and CLI implemented; triage remains |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
@@ -297,6 +297,20 @@
   of invalid inputs before node execution. This fixture workflow does not run
   application probes or create PostgreSQL resources. Targeted Ruff and project-wide
   Pyright pass; graph tests narrowly exempt upstream annotation diagnostics.
+- `graph/runtime.py` supplies run-scoped checkout/environment references and
+  sandbox database settings through `RunResources`. Resource validation checks
+  recorded commit identity against state, release-to-environment bindings, and
+  existing interpreter/venv/backend paths before application inspection. The
+  existing context managers retain creation and cleanup ownership.
+- `graph/nodes/static_analyze.py` is the first verification graph node. It obtains
+  resources through `Runtime[RunResources]`, calls `collect_static_context`, and
+  returns a typed partial update preserving analysis issues. Fatal inspection
+  errors propagate rather than becoming empty context.
+- All 18 graph state/runtime cases pass, including a real LangGraph invocation
+  with a mocked application collector, missing/mismatched/stale resources,
+  backend symlink escape, error propagation, and exclusion of runtime credentials
+  from serialized state. These tests use no Docker or model calls. Project-wide
+  Pyright and targeted Ruff checks pass.
 
 ## In progress
 
@@ -312,8 +326,9 @@
   AST field matcher are implemented. The combined planning-context model,
   collector, and tests are implemented. CLI/report and agent-planning integration
   remain.
-- LangGraph state is implemented. Runtime-resource handling and production nodes,
-  edges, checkpoint persistence, and progress streaming remain to be implemented.
+- LangGraph state, run-scoped resource bindings, and the static-analysis node are
+  implemented. Execution/report nodes, production graph assembly and CLI wiring,
+  checkpoint persistence, and progress streaming remain.
 
 ## Execution design
 
@@ -331,7 +346,7 @@
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
 - Select and pin the model-provider adapter before implementing model calls.
-- Define runtime resources, then connect the initial workflow to graph state.
+- Add execution/report nodes and connect the initial workflow to the CLI.
 
 ## Open questions
 
