@@ -5,7 +5,7 @@
 | Milestone | Status |
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
-| 2: graph and generation | State, runtime resources, and static-analysis node implemented; workflow and agents remain |
+| 2: graph and generation | Initial three-node graph and CLI integration implemented; checkpoints and agents remain |
 | 3: comparison, triage, reports, CLI | Deterministic verification, reports, and CLI implemented; triage remains |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
@@ -285,7 +285,7 @@
   Dependency installation and API-signature inspection made no model calls or
   trace uploads. The dependency baseline passes 357 existing tests with tracing
   disabled; 35 PostgreSQL/Docker tests were explicitly disabled and skipped.
-  Project-wide Pyright passes. Production graph/agent implementation remains pending.
+  Project-wide Pyright passes. Agent implementation remains pending.
 - `graph/state.py` defines `RunState` for prepared runs: configuration, Django
   settings, pinned commit IDs, optional seed fixture, and phase outputs for static
   context, execution evidence, and the final report. Live resources remain outside
@@ -311,6 +311,21 @@
   backend symlink escape, error propagation, and exclusion of runtime credentials
   from serialized state. These tests use no Docker or model calls. Project-wide
   Pyright and targeted Ruff checks pass.
+- `graph/build.py` now compiles `static_analyze -> execute_matrix -> report`.
+  Execution delegates to the existing four-cell verifier and its required fresh
+  replays. Reporting delegates to the validated report builder. Nodes require the
+  preceding phase's evidence and preserve failure/coverage decisions from the
+  deterministic layer; errors stop the workflow without a fabricated report.
+- The CLI creates initial state from pinned SHAs, supplies `RunResources` through
+  runtime context, and invokes the compiled graph while its context managers own
+  the prepared resources. It checks for a final report and handles fatal metadata
+  inspection errors with the existing error exit code. Static context is retained
+  in graph state; saved report schema 1 continues to carry execution evidence.
+- The completed graph-backed CLI passes the full 423-test suite with Docker and
+  PostgreSQL enabled, with no skipped or deselected tests. Coverage includes safe
+  and breaking clean Git releases, reports, preserved user worktrees, and cleanup
+  after successful or failed phases. Project-wide Pyright and Ruff for the CLI,
+  graph package, and changed tests pass. User-authored comments are retained.
 
 ## In progress
 
@@ -324,11 +339,11 @@
   support are implemented, including the addition selector. SQL records, worker,
   launcher, and orchestration are implemented. Code-reference scanning and its
   AST field matcher are implemented. The combined planning-context model,
-  collector, and tests are implemented. CLI/report and agent-planning integration
-  remain.
-- LangGraph state, run-scoped resource bindings, and the static-analysis node are
-  implemented. Execution/report nodes, production graph assembly and CLI wiring,
-  checkpoint persistence, and progress streaming remain.
+  collector, and tests are connected to the CLI graph. Saved planning-context
+  reporting and agent-planning integration remain.
+- LangGraph state, run-scoped resource bindings, execution/report nodes, initial
+  graph assembly, and CLI wiring are implemented. Checkpoint persistence, typed
+  progress streaming, and agent generation/fan-out/validation loops remain.
 
 ## Execution design
 
@@ -346,7 +361,7 @@
 - Preparation/graph nodes will own worktree, environment, and container lifetimes.
 - Configure CI and pre-commit checks.
 - Select and pin the model-provider adapter before implementing model calls.
-- Add execution/report nodes and connect the initial workflow to the CLI.
+- Add graph checkpoint persistence and typed progress streaming.
 
 ## Open questions
 
