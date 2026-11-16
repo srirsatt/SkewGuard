@@ -18,8 +18,8 @@ from skewguard.graph.state import RunState
 def build_graph() -> CompiledStateGraph[RunState, RunResources, RunState, RunState]:
     """Connect static context, execution verification, and report construction."""
     builder = StateGraph(RunState, context_schema=RunResources)
-    builder.add_node("static_analyze", static_analyze)
-    builder.add_node("execute_matrix", execute_matrix)
+    builder.add_node("static_analyze", static_analyze) # basic AST analysis (non LLM)
+    builder.add_node("execute_matrix", execute_matrix) # 4 square matrix execution -> 4 runtimes
     builder.add_node("report", report)
 
     builder.add_edge(START, "static_analyze")

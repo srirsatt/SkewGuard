@@ -30,4 +30,4 @@ def static_analyze(
         settings_module=state.settings_module,
     )
     # -> function we wrote, to collect AST context
-    return {"static_context": result}
+    return {"static_context": result} # return
