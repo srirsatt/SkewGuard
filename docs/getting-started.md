@@ -347,8 +347,8 @@ deduplicated; an empty addition list accompanied by issues is not a safety claim
 
 `select_new_migrations` validates both inventories, requires unchanged append-only
 history, and selects full `(app_label, name)` identities absent from base. It
-preserves head dependency order without mutating inputs. The CLI does not yet
-invoke static analysis.
+preserves head dependency order without mutating inputs. The CLI's graph invokes
+static analysis before matrix verification.
 
 Worker and parent-launcher tests use temporary Django 4.2.30/5.2.19 environments;
 release-comparison tests use all three shop cases. They require uv and dependency
@@ -406,8 +406,9 @@ the PostgreSQL container lifetime.
 
 These results provide planning context. A collected SQL script or an extraction
 error is not a deploy-window/rollback verdict; compatibility still requires the
-execution matrix and reproduction. SQL extraction is not connected to the CLI
-or saved verification reports yet.
+execution matrix and reproduction. The CLI's static-analysis node collects SQL
+into graph state. Saved verification reports currently retain execution evidence;
+planning context remains in the graph's state.
 
 ```bash
 uv run pytest tests/test_sql.py -q
@@ -446,7 +447,8 @@ These are name-based candidates: receiver types, import aliases, custom
 An ordinary label string is ignored by the field matcher. A SQL-shaped assigned
 literal can be retained even when its use cannot be established. SQLGlot parsing
 does not establish that PostgreSQL would accept the query. References do not
-create compatibility verdicts, and this API is not connected to the CLI yet.
+create compatibility verdicts. The CLI graph collects these candidates before
+matrix execution.
 
 ```bash
 uv run pytest tests/test_code_refs.py -q
@@ -464,7 +466,8 @@ The model contains planning observations, without compatibility verdict fields.
 entry point. It uses the existing metadata/SQL/source helpers and receives
 caller-owned release environments and a disposable PostgreSQL server. Fatal
 metadata inspection failures propagate instead of producing empty context.
-The CLI and saved execution reports do not include this context yet.
+The CLI collects this context into graph state. Saved reports currently contain
+execution evidence rather than the planning context.
 
 ```bash
 uv run pytest tests/test_static_context.py -q
@@ -482,8 +485,8 @@ Nodes return partial updates for the fields they produce. Other fields remain
 available to later nodes. Direct state attribute reassignment is disabled; live
 database connections and container objects belong to runtime resources outside
 saved state. A JSON round trip preserves nested evidence types, but does not
-restore application resources. Checkpoint persistence and production graph/CLI
-integration remain pending.
+restore application resources. The CLI invokes the initial production graph;
+checkpoint persistence remains pending.
 
 ```bash
 LANGSMITH_TRACING=false uv run pytest tests/test_graph_state.py -q
@@ -508,16 +511,47 @@ health. Missing context, stale resources, or mismatched releases fail explicitly
 `StaticContext` remains a validated Pydantic artifact. Inspection failures
 propagate and analysis gaps remain in the artifact.
 
-A builder will declare `context_schema=RunResources`; each invocation supplies
+A builder declares `context_schema=RunResources`; each invocation supplies
 its prepared resources through `context=resources`. State and runtime context
 are separate inputs following the
 [LangGraph runtime-context API](https://docs.langchain.com/oss/python/langgraph/graph-api#runtime-context).
-Production graph assembly and CLI wiring remain pending. Tests exercise the
-node through LangGraph with a mocked application collector and confirm that
-runtime credentials and environment paths are absent from serialized state.
+Tests exercise the node through LangGraph with a mocked application collector
+and confirm that runtime credentials and environment paths are absent from
+serialized state.
 
 ```bash
 LANGSMITH_TRACING=false uv run pytest tests/test_graph_runtime.py tests/test_graph_state.py -q
+```
+
+## Initial verification graph
+
+`skewguard/graph/build.py` compiles this sequence:
+
+```text
+START -> static_analyze -> execute_matrix -> report -> END
+```
+
+The execution node calls the existing `verify_matrix`, preserving all four
+cells, comparisons, and two fresh replays for detected candidates. The report
+node calls the existing validated report builder with the matching pinned
+release metadata. Both nodes require their preceding phase's artifact and check
+runtime resource bindings. Failed phases propagate their errors and stop the
+graph; an empty artifact is not substituted for failed work.
+
+`run_verification` prepares the resources, creates initial `RunState`, and invokes
+the graph with `context=resources` and `version="v2"`. It requires a final report
+before returning, with context managers cleaning up on both success and errors.
+`MigrationInspectionError` maps to the CLI's setup/error exit code. Static gaps
+remain planning observations; report verdicts are still derived from execution.
+
+The first graph is synchronous and sequential. Agents, fan-out/retry routing,
+checkpoint persistence, and typed progress rendering remain future additions.
+The graph tests use mocked application work, and the CLI integration tests use
+real safe/breaking Django releases and disposable PostgreSQL.
+
+```bash
+LANGSMITH_TRACING=false uv run pytest tests/test_graph_build.py tests/test_cli.py -q
+LANGSMITH_TRACING=false SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_cli_integration.py -q
 ```
 
 ## JSON and Markdown reports
@@ -560,9 +594,9 @@ uv run python -m skewguard --help
 ```
 
 `run_verification` in `skewguard/cli.py` owns the temporary worktrees,
-per-release environments, and disposable PostgreSQL lifecycle. It runs the
-verification matrix and builds a report with pinned commit IDs. The command
-writes JSON/Markdown after those temporary resources are removed.
+per-release environments, and disposable PostgreSQL lifecycle. It invokes the
+compiled graph for static context, matrix verification, and the pinned-commit
+report. The command writes JSON/Markdown after those temporary resources are removed.
 
 To run the in-repository shop fixture, start Docker and run from the SkewGuard
 repository root:
