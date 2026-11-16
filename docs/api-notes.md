@@ -2,8 +2,8 @@
 
 Checked on 2026-11-16 against live PyPI metadata, official documentation, and
 installed Python signatures on Python 3.12. These dependencies prepare the
-integration; graph execution, agents, tracing, and MCP endpoints are not yet
-implemented. Setup does not make model calls or send traces.
+integration; the production verification graph, agents, tracing, and MCP
+endpoints are not yet implemented. Setup does not make model calls or send traces.
 
 ## Versions
 
@@ -32,6 +32,11 @@ partial dictionaries; fields without a reducer are replaced when updated.
 Parallel writers require explicit reducers for shared fields. Validate generated
 proposals at their boundaries rather than relying only on the graph schema.
 [Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
+
+The installed graph API triggers strict Pyright diagnostics for missing stubs
+and unbound generic types in optional hooks. The graph integration tests exempt
+the missing-stub import and unknown-member diagnostic locally; the state model
+and project-wide strict checking retain their normal settings.
 
 Use `context_schema` and `Runtime[Context]` from `langgraph.runtime` for run-owned
 services/resources. Saved state must remain meaningful after a process exits.
