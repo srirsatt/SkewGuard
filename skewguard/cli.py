@@ -6,11 +6,15 @@ from typing import Annotated
 import typer
 
 from skewguard.config import RunConfig
-from skewguard.exec import db, envs, worktree, verify
+from skewguard.exec import db, envs, worktree
 from skewguard.exec.probes import ProbeExecutionError
 from skewguard.exec.runner import MigrationError
+from skewguard.graph.build import build_graph
+from skewguard.graph.runtime import RunResources
+from skewguard.graph.state import RunState
 from skewguard.report import json_report
 from skewguard.report.markdown import STATUS_LABELS, render_markdown
+from skewguard.static.migrations import MigrationInspectionError
 
 app = typer.Typer(
     help="Reproduce Django migration failures during rolling deploys.",
@@ -29,9 +33,9 @@ def run_verification(
     """Own worktree, environment, and database lifetimes for one complete run.
 
     Prepare base/head environments inside managed_worktrees, installing each
-    release's dependencies. Within managed_postgres, call verify_matrix with
-    those environments and the settings/fixture inputs. Build the report using
-    the pinned checkout SHAs. Context exits must clean up after success or error.
+    release's dependencies. Within managed_postgres, invoke the graph with those
+    runtime resources and state containing settings and pinned checkout SHAs.
+    Context exits must clean up after success or error.
     Return evidence only; the command handles report files and exit status.
     """
     with worktree.managed_worktrees(config) as checkouts:
@@ -43,15 +47,25 @@ def run_verification(
         head = envs.create_environment(config, checkouts.head)
         envs.install_dependencies(config, head)
 
-        typer.echo("running matrix and reproduction checks", err=True)
+        typer.echo("running analysis, matrix, and report graph", err=True)
         with db.managed_postgres(config) as server:
-            result = verify.verify_matrix(
-                config, base, head, server, settings_module=settings_module, seed_fixture=seed_fixture
+            initial = RunState(
+                config=config,
+                settings_module=settings_module,
+                seed_fixture=seed_fixture,
+                base_sha=checkouts.base_sha,
+                head_sha=checkouts.head_sha,
             )
-
-        return json_report.build_report(
-            config, checkouts, result, settings_module=settings_module, seed_fixture=seed_fixture,
-        )
+            resources = RunResources(
+                checkouts=checkouts, base=base, head=head, server=server,
+            )
+            workflow = build_graph()
+            output = workflow.invoke(  # pyright: ignore[reportUnknownMemberType]
+                initial, context=resources, version="v2",
+            )
+            if output.value.report is None:
+                raise ValueError("verification graph completed without a report")
+            return output.value.report
 
 
 def output_paths(json_path: Path, markdown_path: Path | None) -> tuple[Path, Path]:
@@ -138,6 +152,7 @@ def run_command(
         envs.EnvironmentSetupError,
         db.DatabaseSetupError,
         MigrationError,
+        MigrationInspectionError,
         ProbeExecutionError,
         OSError,
         ValueError,
