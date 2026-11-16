@@ -489,6 +489,37 @@ integration remain pending.
 LANGSMITH_TRACING=false uv run pytest tests/test_graph_state.py -q
 ```
 
+## Runtime context and the static-analysis node
+
+`skewguard/graph/runtime.py` defines `RunResources`, a frozen dataclass holding
+prepared checkout metadata, base/head Python environments, and sandbox server
+connection settings. The server field describes where to connect; it is not an
+open connection. Existing context managers own resource creation and cleanup.
+
+`validate_resources` checks recorded SHAs against `RunState`, environment/checkouts
+associations, and interpreter/venv/backend paths before application inspection.
+It checks resource bindings rather than re-verifying Git contents or PostgreSQL
+health. Missing context, stale resources, or mismatched releases fail explicitly.
+
+`graph/nodes/static_analyze.py` receives `RunState` and
+`Runtime[RunResources]`, validates those bindings, calls the existing
+`collect_static_context`, and returns only `{"static_context": result}`. Its
+`StaticAnalyzeUpdate` TypedDict describes the update keys, while the returned
+`StaticContext` remains a validated Pydantic artifact. Inspection failures
+propagate and analysis gaps remain in the artifact.
+
+A builder will declare `context_schema=RunResources`; each invocation supplies
+its prepared resources through `context=resources`. State and runtime context
+are separate inputs following the
+[LangGraph runtime-context API](https://docs.langchain.com/oss/python/langgraph/graph-api#runtime-context).
+Production graph assembly and CLI wiring remain pending. Tests exercise the
+node through LangGraph with a mocked application collector and confirm that
+runtime credentials and environment paths are absent from serialized state.
+
+```bash
+LANGSMITH_TRACING=false uv run pytest tests/test_graph_runtime.py tests/test_graph_state.py -q
+```
+
 ## JSON and Markdown reports
 
 `skewguard/report/json_report.py` defines schema version `1`, pinned release
