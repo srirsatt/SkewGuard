@@ -21,6 +21,7 @@ def static_analyze(
 ) -> StaticAnalyzeUpdate:
     """Use run-scoped resources and return validated planning context."""
     resources = validate_resources(state, runtime.context)
+    # commit IDs should match the state and envs that need to be run
     result = collect_static_context(
         state.config,
         resources.base,
@@ -28,4 +29,5 @@ def static_analyze(
         resources.server,
         settings_module=state.settings_module,
     )
+    # -> function we wrote, to collect AST context
     return {"static_context": result}
