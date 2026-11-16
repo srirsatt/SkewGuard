@@ -6,7 +6,8 @@ SkewGuard is in early development. Configuration, isolated Git checkouts and
 Python environments, PostgreSQL database copying, and Django migration execution
 are implemented. The shop fixture, seed-data loader, ORM read/write probes,
 and four-cell matrix execution are available. Outcome normalization, comparison,
-and fresh-state reproduction checks are implemented. Agents are in development.
+and fresh-state reproduction checks are implemented. LangGraph connects static
+analysis, execution verification, and reporting. Agent generation remains planned.
 
 `skewguard run` prepares isolated releases and PostgreSQL, verifies migration
 behavior, and writes versioned JSON evidence plus Markdown. `skewguard report`
