@@ -9,6 +9,13 @@ description = "An execution-based deploy-skew verifier for Django migrations."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "langchain==1.5.0",
+    "langchain-core==1.8.1",
+    "langgraph==1.2.22",
+    "langgraph-checkpoint==4.3.2",
+    "langgraph-checkpoint-sqlite==3.1.3",
+    "langsmith==0.14.17",
+    "mcp==2.3.0",
     "psycopg[binary]==3.3.7",
     "pydantic==2.14.1",
     "sqlglot==30.31.0",
