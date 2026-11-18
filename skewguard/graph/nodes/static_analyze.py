@@ -4,6 +4,7 @@ from typing import TypedDict
 
 from langgraph.runtime import Runtime
 
+from skewguard.graph.progress import ProgressEvent
 from skewguard.graph.runtime import RunResources, validate_resources
 from skewguard.graph.state import RunState
 from skewguard.static.context import collect_static_context
@@ -21,6 +22,7 @@ def static_analyze(
 ) -> StaticAnalyzeUpdate:
     """Use run-scoped resources and return validated planning context."""
     resources = validate_resources(state, runtime.context)
+    runtime.stream_writer(ProgressEvent(node="static_analyze").model_dump())
     # commit IDs should match the state and envs that need to be run
     result = collect_static_context(
         state.config,
