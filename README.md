@@ -10,7 +10,9 @@ and fresh-state reproduction checks are implemented. LangGraph connects static
 analysis, execution verification, and reporting. Agent generation remains planned.
 
 `skewguard run` prepares isolated releases and PostgreSQL, verifies migration
-behavior, and writes versioned JSON evidence plus Markdown. `skewguard report`
+behavior, streams phase progress, and writes versioned JSON evidence plus Markdown.
+Runs have local SQLite checkpoints; `skewguard resume RUN_ID` continues unfinished
+work using pinned commits. `skewguard report`
 validates and renders saved evidence without booting the application or Docker.
 
 See the [development setup](docs/getting-started.md) and
@@ -28,3 +30,13 @@ uv run ruff check .
 uv run ruff format --check .
 uv run pyright
 ```
+
+To try safe and breaking releases locally, generate a disposable shop repository:
+
+```bash
+uv run python scripts/make_demo_repo.py /tmp/skewguard-demo
+```
+
+The destination must not already exist. The generated `base`, `safe`, and
+`breaking` refs are described in the [CLI demo guide](docs/getting-started.md#manual-cli-demo).
+The current deterministic workflow requires Docker and uv; it makes no model calls.
