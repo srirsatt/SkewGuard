@@ -6,6 +6,7 @@ from langgraph.runtime import Runtime
 
 from skewguard.exec.types import VerificationResult
 from skewguard.exec.verify import verify_matrix
+from skewguard.graph.progress import ProgressEvent
 from skewguard.graph.runtime import RunResources, validate_resources
 from skewguard.graph.state import RunState
 
@@ -23,6 +24,7 @@ def execute_matrix(
     if state.static_context is None:
         raise ValueError("execute_matrix requires completed static-analysis context")
     resources = validate_resources(state, runtime.context)
+    runtime.stream_writer(ProgressEvent(node="execute_matrix").model_dump())
     result = verify_matrix(
         state.config,
         resources.base,
