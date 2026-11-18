@@ -1,9 +1,10 @@
 # Agent and orchestration API notes
 
-Checked on 2026-11-16 against live PyPI metadata, official documentation, and
-installed Python signatures on Python 3.12. The initial deterministic verification
-graph is implemented. Agent generation, checkpoint persistence, progress streaming,
-tracing integration, and MCP endpoints remain planned. Setup makes no model calls.
+The dependency baseline was checked on 2026-11-16 against PyPI metadata and
+installed Python signatures. Checkpoint/streaming APIs and filelock were checked
+again on 2026-11-18. The deterministic graph, SQLite recovery, and typed phase
+progress are implemented. Agent generation, tracing integration, and MCP endpoints
+remain planned. Setup makes no model calls.
 
 ## Versions
 
@@ -16,6 +17,7 @@ tracing integration, and MCP endpoints remain planned. Setup makes no model call
 | `langgraph-checkpoint` | `4.3.2` | [PyPI](https://pypi.org/project/langgraph-checkpoint/4.3.2/) |
 | `langgraph-checkpoint-sqlite` | `3.1.3` | [PyPI](https://pypi.org/project/langgraph-checkpoint-sqlite/3.1.3/) |
 | `mcp` (official SDK) | `2.3.0` | [PyPI](https://pypi.org/project/mcp/2.3.0/) |
+| `filelock` | `4.2.12` | [PyPI](https://pypi.org/project/filelock/4.2.12/) |
 
 Provider selection is pending. The researched stable adapters are
 [`langchain-openai==1.8.0`](https://pypi.org/project/langchain-openai/1.8.0/)
@@ -35,8 +37,8 @@ proposals at their boundaries rather than relying only on the graph schema.
 
 The installed graph API triggers strict Pyright diagnostics for missing stubs
 and unbound generic types in optional hooks. The graph builder and integration
-tests exempt those upstream diagnostics locally; the CLI has a single invocation
-member exemption. State/data models and project-wide strict settings are retained.
+tests and stream/session adapters exempt those upstream diagnostics locally.
+State/data models and project-wide strict settings are retained.
 
 Use `context_schema` and `Runtime[Context]` from `langgraph.runtime` for run-owned
 services/resources. Saved state must remain meaningful after a process exits.
@@ -64,7 +66,11 @@ with async execution. Keep the saver connection open throughout execution.
 Attach it when compiling and provide `configurable.thread_id` when running.
 `get_state` returns a snapshot; its `next` field identifies pending nodes.
 Checkpoint serialization must round-trip the project's nested evidence models;
-review the installed `JsonPlusSerializer` module allowlists when adding types.
+the serializer explicitly allows the project's evidence schemas and framework
+built-ins, with pickle disabled. The CLI uses `durability="sync"`. Error recovery
+passes `None` as input with the same thread ID, while completed runs return their
+saved report. A per-run OS lock prevents simultaneous resumes; different run IDs
+can share a store. [Filelock documentation](https://py-filelock.readthedocs.io/en/latest/)
 [Checkpointers](https://docs.langchain.com/oss/python/langgraph/checkpointers)
 
 Import `interrupt` and `Command` from `langgraph.types`. Resume human input with
@@ -83,6 +89,12 @@ identify nested events. With v2 values output, `invoke`/`ainvoke` returns
 interrupt access. Stream payloads need deliberate CLI rendering because full
 state can contain application evidence.
 [Streaming](https://docs.langchain.com/oss/python/langgraph/streaming)
+
+The current CLI uses v2 `custom`, `updates`, and `values` stream modes. Nodes emit
+scripted start events through `runtime.stream_writer`; completions come from
+updates. Only approved phase labels are printed. Full values stay internal and
+the final state is schema-validated. The outer invocation has a finite step cap;
+agent-specific retry and model-call budgets remain part of agent implementation.
 
 ## Individual agents, models, and structured results
 
