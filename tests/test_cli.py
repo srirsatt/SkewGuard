@@ -1,11 +1,11 @@
 """Check CLI argument validation, status codes, report I/O, and resource ownership."""
 
+import re
 from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import MagicMock, Mock
 
 import pytest
-from langgraph.types import GraphOutput
 from pydantic import SecretStr
 from typer.testing import CliRunner
 
@@ -15,6 +15,8 @@ from skewguard.exec.db import DatabaseConnection
 from skewguard.exec.envs import EnvironmentSetupError, PythonEnvironment
 from skewguard.exec.probes import ProbeExecutionError
 from skewguard.exec.worktree import CheckoutPair
+from skewguard.graph.build import build_graph
+from skewguard.graph.checkpoints import open_checkpoints, run_config
 from skewguard.graph.runtime import RunResources
 from skewguard.graph.state import RunState
 from skewguard.report.json_report import RunReport, read_json_report, write_json_report
@@ -39,6 +41,8 @@ def arguments(tmp_path: Path) -> list[str]:
         "products",
         "--json",
         str(tmp_path / "out.json"),
+        "--checkpoint",
+        str(tmp_path / "checkpoints.sqlite"),
     ]
 
 
@@ -71,10 +75,14 @@ def test_run_writes_both_reports_and_uses_evidence_exit_codes(
     config = execute.call_args.args[0]
     assert isinstance(config, RunConfig)
     assert config.repo_path == tmp_path
-    assert execute.call_args.kwargs == {
-        "settings_module": "shop.settings",
-        "seed_fixture": "products",
-    }
+    assert execute.call_args.kwargs["settings_module"] == "shop.settings"
+    assert execute.call_args.kwargs["seed_fixture"] == "products"
+    assert execute.call_args.kwargs["checkpoint_path"] == (
+        tmp_path / "checkpoints.sqlite"
+    )
+    identifier = execute.call_args.kwargs["run_id"]
+    assert re.fullmatch(r"[0-9a-f]{32}", identifier)
+    assert f"Run ID: {identifier}" in result.output
 
 
 @pytest.mark.parametrize(
@@ -240,8 +248,7 @@ def test_orchestration_owns_both_environments_and_cleans_resources_after_errors(
             else MigrationInspectionError("inspection failed") if failure == "inspect"
             else None
         ),
-        return_value=GraphOutput(
-            value=RunState(
+        return_value=RunState(
                 config=config,
                 settings_module="shop.settings",
                 base_sha=checkouts.base_sha,
@@ -249,7 +256,6 @@ def test_orchestration_owns_both_environments_and_cleans_resources_after_errors(
                 seed_fixture="products",
                 verification=sample.verification,
                 report=None if failure == "missing_report" else sample,
-            )
         ),
     )
     monkeypatch.setattr(cli.worktree, "managed_worktrees", Mock(return_value=worktrees))
@@ -257,8 +263,8 @@ def test_orchestration_owns_both_environments_and_cleans_resources_after_errors(
     monkeypatch.setattr(cli.envs, "create_environment", create)
     monkeypatch.setattr(cli.envs, "install_dependencies", install)
     graph = Mock()
-    graph.invoke = execute
-    monkeypatch.setattr(cli, "build_graph", Mock(return_value=graph))
+    monkeypatch.setattr(cli.session, "build_graph", Mock(return_value=graph))
+    monkeypatch.setattr(cli.session, "stream_workflow", execute)
 
     if failure is not None:
         with pytest.raises(
@@ -284,7 +290,8 @@ def test_orchestration_owns_both_environments_and_cleans_resources_after_errors(
         assert [call.args for call in install.call_args_list] == [
             (config, environment) for environment in environments
         ]
-        initial = execute.call_args.args[0]
+        assert execute.call_args.args[0] is graph
+        initial = execute.call_args.args[1]
         assert isinstance(initial, RunState)
         assert initial.config == config
         assert initial.base_sha == checkouts.base_sha
@@ -293,15 +300,73 @@ def test_orchestration_owns_both_environments_and_cleans_resources_after_errors(
         assert initial.seed_fixture == "products"
         assert initial.verification is None
         assert initial.report is None
-        resources = execute.call_args.kwargs["context"]
+        resources = execute.call_args.args[2]
         assert isinstance(resources, RunResources)
         assert resources.checkouts == checkouts
         assert resources.base == environments[0]
         assert resources.head == environments[1]
         assert resources.server == server
-        assert execute.call_args.kwargs["version"] == "v2"
+        assert execute.call_args.kwargs["durable"] is False
     worktrees.__exit__.assert_called_once()
     if failure == "install":
         start_database.assert_not_called()
     else:
         postgres.__exit__.assert_called_once()
+
+
+@pytest.mark.parametrize(("mode", "exit_code"), [("safe", 0), ("breaking", 1)])
+def test_resume_completed_run_writes_saved_evidence_without_preparing_resources(
+    report_factory: Callable[[str], RunReport], tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch, mode: str, exit_code: int,
+) -> None:
+    sample = report_factory(mode)
+    context = sample.context
+    state = RunState(
+        config=RunConfig(repo_path=context.repo_path, base_ref=context.base_ref,
+                         head_ref=context.head_ref),
+        settings_module=context.settings_module, base_sha=context.base_sha,
+        head_sha=context.head_sha, seed_fixture=context.seed_fixture,
+        verification=sample.verification, report=sample,
+    )
+    path = tmp_path / "checkpoints.sqlite"
+    identifier = "1" * 32
+    with open_checkpoints(path, identifier, create=True) as saver:
+        build_graph(saver).update_state(  # pyright: ignore[reportUnknownMemberType]
+            run_config(identifier), state.model_dump(), as_node="report",
+        )
+    prepare = Mock(side_effect=AssertionError("must not prepare"))
+    monkeypatch.setattr(cli.session, "prepared_resources", prepare)
+    output = tmp_path / "resumed.json"
+    result = runner.invoke(cli.app, ["resume", identifier, "--checkpoint", str(path),
+                                    "--json", str(output)])
+    assert result.exit_code == exit_code, result.output
+    assert read_json_report(output) == sample
+    prepare.assert_not_called()
+
+
+@pytest.mark.parametrize("command", ["run", "resume"])
+def test_checkpoint_cannot_be_overwritten_by_report_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command: str,
+) -> None:
+    path = tmp_path / "checkpoints.sqlite"
+    path.write_text("preserve existing data", encoding="utf-8")
+    execute = Mock()
+    monkeypatch.setattr(cli, "run_verification", execute)
+    args = arguments(tmp_path) if command == "run" else ["resume", "1" * 32]
+    result = runner.invoke(
+        cli.app, [*args, "--checkpoint", str(path), "--json", str(path)]
+    )
+    assert result.exit_code == 2
+    assert path.read_text(encoding="utf-8") == "preserve existing data"
+    execute.assert_not_called()
+
+
+def test_resume_missing_checkpoint_has_a_clear_error_and_creates_no_store(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "missing.sqlite"
+    result = runner.invoke(cli.app, ["resume", "1" * 32, "--checkpoint", str(path),
+                                    "--json", str(tmp_path / "out.json")])
+    assert result.exit_code == 2
+    assert "does not exist" in result.output
+    assert not path.exists()
