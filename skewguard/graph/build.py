@@ -3,6 +3,7 @@
 # LangGraph's optional hooks expose unbound generics in its public method types.
 # pyright: reportUnknownMemberType=false
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph  # pyright: ignore[reportMissingTypeStubs]
 from langgraph.graph.state import (  # pyright: ignore[reportMissingTypeStubs]
     CompiledStateGraph,
@@ -14,8 +15,10 @@ from skewguard.graph.nodes.static_analyze import static_analyze
 from skewguard.graph.runtime import RunResources
 from skewguard.graph.state import RunState
 
+type VerificationGraph = CompiledStateGraph[RunState, RunResources, RunState, RunState]
 
-def build_graph() -> CompiledStateGraph[RunState, RunResources, RunState, RunState]:
+
+def build_graph(checkpointer: BaseCheckpointSaver[str] | None = None) -> VerificationGraph:
     """Connect static context, execution verification, and report construction."""
     builder = StateGraph(RunState, context_schema=RunResources)
     builder.add_node("static_analyze", static_analyze) # basic AST analysis (non LLM)
@@ -27,4 +30,4 @@ def build_graph() -> CompiledStateGraph[RunState, RunResources, RunState, RunSta
     builder.add_edge("execute_matrix", "report")
     builder.add_edge("report", END)
 
-    return builder.compile()
+    return builder.compile(checkpointer=checkpointer)
