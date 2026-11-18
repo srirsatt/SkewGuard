@@ -486,7 +486,7 @@ available to later nodes. Direct state attribute reassignment is disabled; live
 database connections and container objects belong to runtime resources outside
 saved state. A JSON round trip preserves nested evidence types, but does not
 restore application resources. The CLI invokes the initial production graph;
-checkpoint persistence remains pending.
+checkpoint recovery is available through the CLI's `resume` command.
 
 ```bash
 LANGSMITH_TRACING=false uv run pytest tests/test_graph_state.py -q
@@ -538,14 +538,15 @@ release metadata. Both nodes require their preceding phase's artifact and check
 runtime resource bindings. Failed phases propagate their errors and stop the
 graph; an empty artifact is not substituted for failed work.
 
-`run_verification` prepares the resources, creates initial `RunState`, and invokes
-the graph with `context=resources` and `version="v2"`. It requires a final report
+`run_verification` delegates to the session manager, which prepares resources,
+creates initial `RunState`, and streams the graph with `context=resources` and
+`version="v2"`. It requires a final report
 before returning, with context managers cleaning up on both success and errors.
 `MigrationInspectionError` maps to the CLI's setup/error exit code. Static gaps
 remain planning observations; report verdicts are still derived from execution.
 
-The first graph is synchronous and sequential. Agents, fan-out/retry routing,
-checkpoint persistence, and typed progress rendering remain future additions.
+The first graph is synchronous and sequential. SQLite checkpoints and typed phase
+progress are implemented; agents and fan-out/retry routing remain future additions.
 The graph tests use mocked application work, and the CLI integration tests use
 real safe/breaking Django releases and disposable PostgreSQL.
 
@@ -593,10 +594,10 @@ uv run skewguard run --help
 uv run python -m skewguard --help
 ```
 
-`run_verification` in `skewguard/cli.py` owns the temporary worktrees,
-per-release environments, and disposable PostgreSQL lifecycle. It invokes the
-compiled graph for static context, matrix verification, and the pinned-commit
-report. The command writes JSON/Markdown after those temporary resources are removed.
+`run_verification` in `skewguard/cli.py` delegates resource ownership to
+`graph/session.py`. Its context managers own worktrees, per-release environments,
+and disposable PostgreSQL while the compiled graph runs. The command writes
+JSON/Markdown after those temporary resources are removed.
 
 To run the in-repository shop fixture, start Docker and run from the SkewGuard
 repository root:
@@ -665,6 +666,74 @@ It refuses to overwrite its JSON input with Markdown.
 uv run pytest tests/test_reports.py tests/test_cli.py -q
 SKEWGUARD_TEST_POSTGRES=1 uv run pytest tests/test_cli_integration.py -q
 ```
+
+## Checkpoint recovery and progress
+
+`run` prints a run ID and stores graph state in `.skewguard/checkpoints.sqlite`
+by default. `--checkpoint PATH` selects another store. Each run uses a separate
+thread ID, and OS-backed locks reject concurrent use of one ID. Reports must use
+different paths from the checkpoint database. Checkpoints are local artifacts
+for the same SkewGuard code/dependency baseline, not an interchange format.
+
+Nodes emit typed start events, and LangGraph's update stream supplies completion
+events. The CLI prints phase labels to stderr while keeping full state internal.
+There are no model calls in the current workflow. The invocation step cap bounds
+accidental graph cycles; checkpoints themselves are a recovery mechanism.
+
+After a graph failure or interruption, continue using the printed ID:
+
+```bash
+LANGSMITH_TRACING=false uv run skewguard resume RUN_ID \
+  --checkpoint .skewguard/checkpoints.sqlite --json /tmp/resumed.json
+```
+
+Unfinished runs recreate temporary resources at the saved commit SHAs, even if
+the original named refs have moved. A failed matrix node rebuilds fresh snapshots
+and runs from its beginning. Completed nodes are retained. A completed run reuses
+its saved report without creating worktrees, installing dependencies, or starting
+PostgreSQL. The recorded repository must still be available to load run settings.
+
+The saver connection closes after execution, with synchronous checkpoint writes.
+Runtime credentials and temporary resource bindings are excluded from saved
+state. The serializer explicitly registers project schemas; arbitrary external
+classes and pickle revival are disabled. Store markers reject unrelated SQLite
+databases. Use checkpoint files you trust, as local application evidence can be
+present in them. Preparation failures before graph execution have no saved graph
+state and require a new `run`. Human `interrupt()` responses are not yet supported.
+
+## Manual CLI demo
+
+Start Docker Desktop, then run from the SkewGuard checkout. This creates a new
+temporary shop repository with committed `base`, `safe`, and `breaking` refs:
+
+```bash
+demo_root=$(mktemp -d /tmp/skewguard-demo.XXXXXX)
+uv run python scripts/make_demo_repo.py "$demo_root/shop"
+
+LANGSMITH_TRACING=false uv run skewguard run \
+  --repo "$demo_root/shop" --base base --head safe \
+  --settings shop.settings --seed products \
+  --checkpoint "$demo_root/checkpoints.sqlite" --json "$demo_root/safe.json"
+
+LANGSMITH_TRACING=false uv run skewguard run \
+  --repo "$demo_root/shop" --base base --head breaking \
+  --settings shop.settings --seed products \
+  --checkpoint "$demo_root/checkpoints.sqlite" --json "$demo_root/breaking.json"
+```
+
+The nullable-field release should exit `0`. The renamed-field release should
+exit `1` and write reproduced findings. These are fixture expectations, not
+universal safety claims. Inspect its saved Markdown without running the app:
+
+```bash
+uv run skewguard report "$demo_root/breaking.json"
+```
+
+Copy a printed run ID to test `resume`; a completed run returns its saved result.
+To exercise recovery, interrupt during the displayed matrix phase and resume the
+same ID/store. The last completed graph step is retained. The demo script refuses
+existing destinations, configures Git identity only for its own commands, and
+creates no remote. The default checkpoint directory is ignored by this repository.
 
 ## Development checks
 
