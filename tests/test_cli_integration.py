@@ -1,6 +1,7 @@
 """Run the CLI against real Git releases, isolated environments, and PostgreSQL."""
 
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -78,6 +79,7 @@ def test_cli_runs_clean_git_releases_writes_reports_and_cleans_up(
     original_status = git(repo, "status", "--porcelain")
     original_worktrees = git(repo, "worktree", "list", "--porcelain")
     output = tmp_path / "reports/out.json"
+    checkpoint = tmp_path / "checkpoints.sqlite"
 
     result = CliRunner().invoke(
         app,
@@ -95,10 +97,16 @@ def test_cli_runs_clean_git_releases_writes_reports_and_cleans_up(
             "products",
             "--json",
             str(output),
+            "--checkpoint",
+            str(checkpoint),
         ],
     )
 
     assert result.exit_code == exit_code, f"{result.output}\n{result.exception}"
+    assert "Starting: static analysis" in result.output
+    assert "Completed: matrix and reproduction checks" in result.output
+    identifier = re.search(r"Run ID: ([0-9a-f]{32})", result.output)
+    assert identifier is not None
     report = read_json_report(output)
     assert report.context.base_sha == base_sha
     assert report.context.head_sha == head_sha
@@ -115,3 +123,12 @@ def test_cli_runs_clean_git_releases_writes_reports_and_cleans_up(
     rendered = CliRunner().invoke(app, ["report", str(output)])
     assert rendered.exit_code == 0
     assert rendered.output == render_markdown(report)
+
+    resumed_path = tmp_path / "reports/resumed.json"
+    resumed = CliRunner().invoke(app, [
+        "resume", identifier.group(1), "--checkpoint", str(checkpoint),
+        "--json", str(resumed_path),
+    ])
+    assert resumed.exit_code == exit_code, resumed.output
+    assert read_json_report(resumed_path) == report
+    assert "Starting:" not in resumed.output
