@@ -1,17 +1,19 @@
 """Command-line entry points for deterministic migration verification and reports."""
 
+import sqlite3
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, NoReturn
+from uuid import uuid4
 
 import typer
+from langgraph.errors import GraphRecursionError
 
 from skewguard.config import RunConfig
 from skewguard.exec import db, envs, worktree
 from skewguard.exec.probes import ProbeExecutionError
 from skewguard.exec.runner import MigrationError
-from skewguard.graph.build import build_graph
-from skewguard.graph.runtime import RunResources
-from skewguard.graph.state import RunState
+from skewguard.graph import session
+from skewguard.graph.checkpoints import DEFAULT_CHECKPOINT
 from skewguard.report import json_report
 from skewguard.report.markdown import STATUS_LABELS, render_markdown
 from skewguard.static.migrations import MigrationInspectionError
@@ -23,12 +25,20 @@ app = typer.Typer(
     pretty_exceptions_show_locals=False,
 )
 
+RUN_ERRORS = (
+    worktree.GitError, envs.EnvironmentSetupError, db.DatabaseSetupError,
+    MigrationError, MigrationInspectionError, ProbeExecutionError,
+    GraphRecursionError, sqlite3.Error, OSError, ValueError,
+)
+
 
 def run_verification(
     config: RunConfig,
     *,
     settings_module: str,
     seed_fixture: str | None = None,
+    checkpoint_path: Path | None = None,
+    run_id: str | None = None,
 ) -> json_report.RunReport:
     """Own worktree, environment, and database lifetimes for one complete run.
 
@@ -38,34 +48,11 @@ def run_verification(
     Context exits must clean up after success or error.
     Return evidence only; the command handles report files and exit status.
     """
-    with worktree.managed_worktrees(config) as checkouts:
-        typer.echo("preparing base environment...", err=True)
-        base = envs.create_environment(config, checkouts.base)
-        envs.install_dependencies(config, base)
-
-        typer.echo("preparing head environment...", err=True)
-        head = envs.create_environment(config, checkouts.head)
-        envs.install_dependencies(config, head)
-
-        typer.echo("running analysis, matrix, and report graph", err=True)
-        with db.managed_postgres(config) as server:
-            initial = RunState(
-                config=config,
-                settings_module=settings_module,
-                seed_fixture=seed_fixture,
-                base_sha=checkouts.base_sha,
-                head_sha=checkouts.head_sha,
-            )
-            resources = RunResources(
-                checkouts=checkouts, base=base, head=head, server=server,
-            )
-            workflow = build_graph()
-            output = workflow.invoke(  # pyright: ignore[reportUnknownMemberType]
-                initial, context=resources, version="v2",
-            )
-            if output.value.report is None:
-                raise ValueError("verification graph completed without a report")
-            return output.value.report
+    return session.run_session(
+        config, settings_module=settings_module, seed_fixture=seed_fixture,
+        checkpoint_path=checkpoint_path, run_id=run_id,
+        on_progress=lambda message: typer.echo(message, err=True),
+    )
 
 
 def output_paths(json_path: Path, markdown_path: Path | None) -> tuple[Path, Path]:
@@ -81,6 +68,31 @@ def output_paths(json_path: Path, markdown_path: Path | None) -> tuple[Path, Pat
     if json_path.is_dir() or markdown_path.is_dir():
         raise typer.BadParameter("report outputs must be file paths")
     return json_path, markdown_path
+
+
+def checkpoint_output_path(path: Path, outputs: tuple[Path, Path]) -> Path:
+    """Keep report writes from replacing the checkpoint database."""
+    resolved = path.expanduser().resolve()
+    if resolved in outputs or resolved.is_dir():
+        raise typer.BadParameter(
+            "checkpoint must be a file distinct from report outputs"
+        )
+    return resolved
+
+
+def finish_report(
+    report: json_report.RunReport, json_path: Path, markdown_path: Path,
+) -> NoReturn:
+    """Write the evidence and use the same result status for new and resumed runs."""
+    json_report.write_json_report(report, json_path)
+    json_report.write_text(markdown_path, render_markdown(report))
+    typer.echo(STATUS_LABELS[report.summary.status])
+    typer.echo(f"JSON: {json_path}")
+    typer.echo(f"Markdown: {markdown_path}")
+    code = {"no_break_detected": 0, "break_detected": 1, "inconclusive": 3}[
+        report.summary.status
+    ]
+    raise typer.Exit(code=code)
 
 
 @app.command("run")
@@ -112,6 +124,9 @@ def run_command(
         Path | None,
         typer.Option("--markdown", help="Markdown report; defaults beside JSON."),
     ] = None,
+    checkpoint: Annotated[
+        Path, typer.Option("--checkpoint", help="SQLite workflow checkpoint database.")
+    ] = DEFAULT_CHECKPOINT,
     timeout: Annotated[
         int, typer.Option("--timeout", min=1, help="Per-operation timeout in seconds.")
     ] = 60,
@@ -135,6 +150,7 @@ def run_command(
         if not seed:
             raise typer.BadParameter("--seed must not be blank")
     json_path, markdown_path = output_paths(json_output, markdown_output)
+    checkpoint_path = checkpoint_output_path(checkpoint, (json_path, markdown_path))
     try:
         config = RunConfig(
             repo_path=repo,
@@ -144,28 +160,43 @@ def run_command(
             timeout_seconds=timeout,
             probe_row_limit=probe_row_limit,
         )
-        report = run_verification(config, settings_module=settings, seed_fixture=seed)
-        json_report.write_json_report(report, json_path)
-        json_report.write_text(markdown_path, render_markdown(report))
-    except (
-        worktree.GitError,
-        envs.EnvironmentSetupError,
-        db.DatabaseSetupError,
-        MigrationError,
-        MigrationInspectionError,
-        ProbeExecutionError,
-        OSError,
-        ValueError,
-    ) as error:
+        run_id = uuid4().hex
+        typer.echo(f"Run ID: {run_id}", err=True)
+        typer.echo(f"Checkpoints: {checkpoint_path}", err=True)
+        report = run_verification(
+            config, settings_module=settings, seed_fixture=seed,
+            checkpoint_path=checkpoint_path, run_id=run_id,
+        )
+        finish_report(report, json_path, markdown_path)
+    except RUN_ERRORS as error:
         typer.echo(f"Error: {error}", err=True)
         raise typer.Exit(code=2) from error
-    typer.echo(STATUS_LABELS[report.summary.status])
-    typer.echo(f"JSON: {json_path}")
-    typer.echo(f"Markdown: {markdown_path}")
-    code = {"no_break_detected": 0, "break_detected": 1, "inconclusive": 3}[
-        report.summary.status
-    ]
-    raise typer.Exit(code=code)
+
+
+@app.command("resume")
+def resume_command(
+    run_id: Annotated[str, typer.Argument(help="Run ID printed by an earlier run.")],
+    checkpoint: Annotated[
+        Path, typer.Option("--checkpoint", help="SQLite workflow checkpoint database.")
+    ] = DEFAULT_CHECKPOINT,
+    json_output: Annotated[
+        Path, typer.Option("--json")
+    ] = Path("skewguard-report.json"),
+    markdown_output: Annotated[Path | None, typer.Option("--markdown")] = None,
+) -> None:
+    """Continue unfinished work at pinned commits or re-render a completed run."""
+    json_path, markdown_path = output_paths(json_output, markdown_output)
+    checkpoint_path = checkpoint_output_path(checkpoint, (json_path, markdown_path))
+    try:
+        typer.echo(f"Resuming run: {run_id}", err=True)
+        report = session.resume_session(
+            checkpoint_path, run_id,
+            on_progress=lambda message: typer.echo(message, err=True),
+        )
+        finish_report(report, json_path, markdown_path)
+    except RUN_ERRORS as error:
+        typer.echo(f"Error: {error}", err=True)
+        raise typer.Exit(code=2) from error
 
 
 @app.command("report")
