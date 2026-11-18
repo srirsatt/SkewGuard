@@ -5,7 +5,7 @@
 | Milestone | Status |
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
-| 2: graph and generation | Initial three-node graph and CLI integration implemented; checkpoints and agents remain |
+| 2: graph and generation | Three-node graph, SQLite recovery, CLI progress, and resume implemented; agents remain |
 | 3: comparison, triage, reports, CLI | Deterministic verification, reports, and CLI implemented; triage remains |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
@@ -326,6 +326,31 @@
   and breaking clean Git releases, reports, preserved user worktrees, and cleanup
   after successful or failed phases. Project-wide Pyright and Ruff for the CLI,
   graph package, and changed tests pass. User-authored comments are retained.
+- Graph sessions now persist typed state with the SQLite checkpointer and
+  synchronous checkpoint writes. Each run has a separate thread ID and a
+  crash-released process lock. The store rejects unrelated SQLite files and
+  unsupported store versions; serialization permits declared evidence schemas
+  and framework built-ins with pickle disabled.
+- `skewguard resume RUN_ID` continues pending nodes using the saved commit SHAs,
+  fresh worktrees/environments, and a new PostgreSQL sandbox. Completed phases
+  retain their evidence; an interrupted matrix starts again with fresh snapshots.
+  Completed runs reuse their validated report without preparing application
+  resources. Preparation failures before graph execution require a new run.
+- Typed v2 custom/update/value streams provide phase start/completion messages
+  without printing raw graph state. A separate invocation step limit bounds
+  accidental graph cycles; agent retry and model-call budgets remain pending.
+- `scripts/make_demo_repo.py` creates an isolated committed shop repository with
+  base, safe nullable-addition, and breaking rename refs. The manual CLI guide
+  covers both releases, saved reports, and checkpoint recovery without API keys.
+- Recovery coverage includes separate Python processes, isolated run IDs,
+  concurrent-resume rejection, lock release after process exit, retained analysis,
+  fresh runtime credentials, and repository refs moving after interruption.
+  Manual PostgreSQL runs produced no detected break for the safe fixture and four
+  reproduced findings for the rename fixture; completed resume returned identical
+  report evidence. These are development checks, not benchmark measurements.
+- The checkpoint/progress implementation passes all 443 tests with Docker and
+  PostgreSQL enabled, with none skipped or deselected. Project-wide Pyright and
+  targeted Ruff checks pass. Existing user-authored formatting is retained.
 
 ## In progress
 
@@ -342,8 +367,8 @@
   collector, and tests are connected to the CLI graph. Saved planning-context
   reporting and agent-planning integration remain.
 - LangGraph state, run-scoped resource bindings, execution/report nodes, initial
-  graph assembly, and CLI wiring are implemented. Checkpoint persistence, typed
-  progress streaming, and agent generation/fan-out/validation loops remain.
+  graph assembly, CLI wiring, SQLite recovery, and typed progress streaming are
+  implemented. Agent generation/fan-out/validation loops and tracing remain.
 
 ## Execution design
 
@@ -357,11 +382,14 @@
 ## Next
 
 - Add explicit ordering probes.
-- Integrate static-analysis context with agent planning and reports.
-- Preparation/graph nodes will own worktree, environment, and container lifetimes.
+- Define the validated HTTP scenario DSL and execute proposals against baseline
+  before allowing them into the comparison matrix.
+- Integrate static-analysis context with scenario/seed planning and reports.
+- Keep worktree, environment, and container lifetimes in the session manager;
+  pass fresh runtime resources to resumed nodes.
 - Configure CI and pre-commit checks.
 - Select and pin the model-provider adapter before implementing model calls.
-- Add graph checkpoint persistence and typed progress streaming.
+- Add bounded scenario/seed generation retries and persistent model-call budgets.
 
 ## Open questions
 
