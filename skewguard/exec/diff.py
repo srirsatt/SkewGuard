@@ -103,7 +103,8 @@ def select_response_fields(
     if not isinstance(body, dict):
         return {}
 
-    return {key: body[key] for key in fields if key in body} # if key in body, return key of body
+    return {key: body[key] for key in fields if key in body} 
+    # if its in both then add it to our return {}
 
 
 def missing_baseline_fields(
