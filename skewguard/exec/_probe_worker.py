@@ -213,7 +213,21 @@ def resolve_seeded_user(identifier: str) -> object:
     Raise ProbeValueError for an absent, ambiguous, or invalid identifier.
     Database errors must propagate as execution evidence.
     """
-    raise NotImplementedError("seeded user lookup is pending")
+    # make sure u have a validated user in ur db so u dont get a non-logged in 403
+
+    model = import_module("django.contrib.auth").get_user_model()
+    validation_error = import_module("django.core.exceptions").ValidationError
+    manager = model._default_manager.db_manager("default")
+
+    try:
+        return manager.get_by_natural_key(identifier)
+    except (
+        model.DoesNotExist,
+        model.MultipleObjectsReturned,
+        validation_error,
+        ValueError
+    ) as error:
+        raise ProbeValueError(f"No unique seeded user for {identifier!r}") from error
 
 
 def execute_http_request(
