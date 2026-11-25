@@ -5,7 +5,7 @@
 | Milestone | Status |
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
-| 2: graph and generation | Three-node graph, SQLite recovery, CLI progress, HTTP scenario schema, and standalone anonymous GET execution implemented; matrix integration and agents remain |
+| 2: graph and generation | Three-node graph, SQLite recovery, CLI progress, scenario schema, and standalone anonymous GET and POST execution implemented; HTTP matrix integration and agents remain |
 | 3: comparison, triage, reports, CLI | Deterministic verification, reports, and CLI implemented; triage remains |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
@@ -371,10 +371,10 @@
   migrated response. Project-wide Pyright and targeted Ruff checks pass.
 - The shop fixture accepts JSON POSTs on `/products/` and validates product
   input before creation. The HTTP transport forwards a scenario's method and
-  body and preserves the GET-only entry point. POST body encoding is pending;
-  both POST tests currently fail at that function. In isolation, a reference
-  encoder passed both tests, including the 201/400 responses and an independent
-  check of persisted PostgreSQL rows. The 55 selected existing checks pass.
+  body and preserves the GET-only entry point. The worker serializes JSON values
+  to UTF-8 bytes and rejects non-finite numbers. All six HTTP GET and POST tests
+  passed with Docker enabled, including creation, rejection of invalid and
+  duplicate requests, and a separate PostgreSQL query verifying the stored row.
 
 ## In progress
 
@@ -406,8 +406,7 @@
 ## Next
 
 - Add explicit ordering probes.
-- Finish POST body encoding and verify the two POST checks with the repository
-  worker. Then extend HTTP execution to authenticated seeded users and
+- Extend HTTP execution to authenticated seeded users and
   selected response fields. Qualify scenarios on A0D0 and integrate accepted
   requests with the four cells and fresh replays.
 - Integrate static-analysis context with scenario/seed planning and reports.
