@@ -199,14 +199,29 @@ def commit_model_writes(model_labels: list[str]) -> list[dict[str, object]]:
     return outcomes
 
 
-def execute_http_get(scenario_id: str, path: str) -> dict[str, object]:
-    """Dispatch one anonymous GET through the checkout's URLconf and middleware."""
+def encode_post_body(body: object) -> bytes:
+    """Encode a scenario's JSON value as UTF-8 bytes, rejecting NaN and infinity."""
+    raise NotImplementedError("JSON POST body encoding is pending")
+
+
+def execute_http_request(
+    scenario_id: str, method: str, path: str, request_body: object
+) -> dict[str, object]:
+    """Send an anonymous request to the selected checkout and capture its result."""
+    if method not in {"GET", "POST"}:
+        raise ValueError("HTTP worker supports GET and POST")
+    payload = encode_post_body(request_body) if method == "POST" else None
     test = import_module("django.test")
     settings = import_module("django.conf").settings
     with test.override_settings(ALLOWED_HOSTS=[*settings.ALLOWED_HOSTS, "testserver"]):
         client = test.Client(raise_request_exception=True)
         try:
-            response = client.get(path, follow=False)
+            if method == "POST":
+                response = client.post(
+                    path, data=payload, content_type="application/json", follow=False
+                )
+            else:
+                response = client.get(path, follow=False)
         except Exception as error:
             integrity_error = import_module("django.db").IntegrityError
             return {
@@ -254,9 +269,12 @@ def main() -> None:
                     "loaddata", request["fixture"], database="default", verbosity=0
                 )
                 outcomes = []
-            elif request["operation"] == "http_get":
+            elif request["operation"] == "http":
                 scenario = request["scenario"]
-                outcomes = [execute_http_get(scenario["scenario_id"], scenario["path"])]
+                outcomes = [execute_http_request(
+                    scenario["scenario_id"], scenario["method"],
+                    scenario["path"], scenario["body"],
+                )]
             else:
                 if request["operation"] not in {"read", "write", "commit"}:
                     raise ValueError("unknown probe worker operation")
@@ -275,7 +293,7 @@ def main() -> None:
     finally:
         connections.close_all()
 
-    if request["operation"] == "http_get":
+    if request["operation"] == "http":
         print(json.dumps(outcomes, allow_nan=False))
     else:
         print(json.dumps(outcomes, default=str))
