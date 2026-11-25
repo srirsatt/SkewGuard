@@ -387,7 +387,8 @@
 - HTTP scenarios can select top-level response fields and still retain the
   entire response as evidence. Comparison and replay share the same selection
   policy. A field missing from the baseline is recorded as a coverage issue.
-  The function that extracts the selected fields is pending.
+  Field extraction preserves explicit nulls and skips absent keys. All 11
+  response-field tests pass.
 - Static metadata records, the isolated worker, parent launcher, and comparison
   support are implemented, including the addition selector. SQL records, worker,
   launcher, and orchestration are implemented. Code-reference scanning and its
@@ -410,8 +411,8 @@
 ## Next
 
 - Add explicit ordering probes.
-- Complete selected-field extraction and add authenticated seeded users to
-  HTTP execution. Qualify scenarios on A0D0 and integrate accepted
+- Add authenticated seeded users to HTTP execution. Qualify scenarios on
+  A0D0 and integrate accepted
   requests with the four cells and fresh replays.
 - Integrate static-analysis context with scenario/seed planning and reports.
 - Register scenario records with the checkpoint serializer when plans are added
