@@ -392,7 +392,9 @@
 - The HTTP worker accepts an optional seeded login identifier and creates a
   fresh test client per request. The shop has an optional session-enabled
   settings module and an account endpoint for authenticated GET and POST
-  checks. The user lookup in the worker is pending.
+  checks. The worker resolves the login through the checkout's user manager.
+  Missing, ambiguous, or invalid user identifiers produce an input error.
+  Database query failures retain their original exception type.
 - Static metadata records, the isolated worker, parent launcher, and comparison
   support are implemented, including the addition selector. SQL records, worker,
   launcher, and orchestration are implemented. Code-reference scanning and its
@@ -415,8 +417,8 @@
 ## Next
 
 - Add explicit ordering probes.
-- Complete the seeded user lookup. Qualify HTTP scenarios on A0D0 and
-  integrate accepted requests with the four cells and fresh replays.
+- Qualify HTTP scenarios on A0D0 and integrate accepted requests with the
+  four cells and fresh replays.
 - Integrate static-analysis context with scenario/seed planning and reports.
 - Register scenario records with the checkpoint serializer when plans are added
   to saved graph state.
