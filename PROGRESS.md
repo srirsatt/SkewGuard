@@ -351,6 +351,12 @@
 - The checkpoint/progress implementation passes all 443 tests with Docker and
   PostgreSQL enabled, with none skipped or deselected. Project-wide Pyright and
   targeted Ruff checks pass. Existing user-authored formatting is retained.
+- HTTP scenario contract scaffolding and transport/validation tests are added in
+  `exec/scenarios.py` and `tests/test_scenarios.py`. The schema's field definitions
+  and validators are pending, so this contract is not yet implemented or wired
+  into the graph or matrix. The existing ORM execution path is unchanged.
+- The incomplete scenario scaffold has 10 failing and 47 passing contract cases.
+  The 69 existing CLI/graph checks, project-wide Pyright, and targeted Ruff pass.
 
 ## In progress
 
@@ -382,9 +388,11 @@
 ## Next
 
 - Add explicit ordering probes.
-- Define the validated HTTP scenario DSL and execute proposals against baseline
-  before allowing them into the comparison matrix.
+- Complete the HTTP scenario schema, then implement Django test-client execution
+  and baseline validation before allowing proposals into the comparison matrix.
 - Integrate static-analysis context with scenario/seed planning and reports.
+- Register scenario records with the checkpoint serializer when plans are added
+  to saved graph state.
 - Keep worktree, environment, and container lifetimes in the session manager;
   pass fresh runtime resources to resumed nodes.
 - Configure CI and pre-commit checks.
