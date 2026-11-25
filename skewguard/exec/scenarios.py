@@ -11,6 +11,8 @@ from pydantic import (
     model_validator,
 )
 
+from skewguard.exec.types import ComparisonPolicy
+
 type HttpMethod = Literal["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"]
 type ScenarioKind = Literal["read", "write"]
 
@@ -34,6 +36,13 @@ class Scenario(BaseModel):
     as_user: str | None = Field(default=None, min_length=1, pattern=r"\S")
     compare_fields: list[str] = Field(default_factory=list)
     # agent scenario fields
+
+    def comparison_policy(self) -> ComparisonPolicy:
+        """Use status checks by default and body comparison for selected keys."""
+        return ComparisonPolicy(
+            compare_body=bool(self.compare_fields),
+            compare_fields=tuple(self.compare_fields),
+        )
 
     @field_validator("path")
     @classmethod
