@@ -59,6 +59,7 @@ def test_shop_post_commits_only_valid_products(
                     "path": "/products/",
                     "kind": "write",
                     "body": body,
+                    "compare_fields": ["price"],
                 }
             )
             return run_http_scenario(
