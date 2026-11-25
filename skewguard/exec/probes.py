@@ -109,9 +109,9 @@ def run_http_get(
     settings_module: str,
     scenario: Scenario,
 ) -> Outcome:
-    """Execute one anonymous GET, retaining the HTTP status and any JSON body."""
-    if scenario.method != "GET" or scenario.as_user is not None:
-        raise ValueError("executor supports anonymous GETs")
+    """Execute one GET, retaining the HTTP status and any JSON body."""
+    if scenario.method != "GET":
+        raise ValueError("expected a GET scenario")
     return run_http_scenario(
         config, environment, database,
         settings_module=settings_module, scenario=scenario,
@@ -126,12 +126,12 @@ def run_http_scenario(
     settings_module: str,
     scenario: Scenario,
 ) -> Outcome:
-    """Execute an anonymous GET or POST on the caller's disposable database.
+    """Execute a GET or POST on the caller's disposable database.
 
     The endpoint controls its transactions. Successful POST writes can persist.
     """
-    if scenario.method not in {"GET", "POST"} or scenario.as_user is not None:
-        raise ValueError("expected anonymous GET or POST")
+    if scenario.method not in {"GET", "POST"}:
+        raise ValueError("expected GET or POST")
     results = _run_worker(
         config,
         environment,
