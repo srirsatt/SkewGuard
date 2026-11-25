@@ -5,7 +5,7 @@
 | Milestone | Status |
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
-| 2: graph and generation | Three-node graph, SQLite recovery, CLI progress, and resume implemented; agents remain |
+| 2: graph and generation | Three-node graph, SQLite recovery, CLI progress, resume, and HTTP scenario schema implemented; HTTP execution and agents remain |
 | 3: comparison, triage, reports, CLI | Deterministic verification, reports, and CLI implemented; triage remains |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
@@ -351,12 +351,11 @@
 - The checkpoint/progress implementation passes all 443 tests with Docker and
   PostgreSQL enabled, with none skipped or deselected. Project-wide Pyright and
   targeted Ruff checks pass. Existing user-authored formatting is retained.
-- HTTP scenario contract scaffolding and transport/validation tests are added in
-  `exec/scenarios.py` and `tests/test_scenarios.py`. The schema's field definitions
-  and validators are pending, so this contract is not yet implemented or wired
-  into the graph or matrix. The existing ORM execution path is unchanged.
-- The incomplete scenario scaffold has 10 failing and 47 passing contract cases.
-  The 69 existing CLI/graph checks, project-wide Pyright, and targeted Ruff pass.
+- The HTTP scenario schema validates local request paths, method/read-write
+  agreement, request bodies, optional user identifiers, and response field names.
+  Non-finite request numbers are rejected to prevent a saved request from
+  silently substituting null. All 60 scenario cases and 29 existing outcome
+  cases pass, as does project-wide Pyright. HTTP execution is still pending.
 
 ## In progress
 
@@ -388,8 +387,8 @@
 ## Next
 
 - Add explicit ordering probes.
-- Complete the HTTP scenario schema, then implement Django test-client execution
-  and baseline validation before allowing proposals into the comparison matrix.
+- Implement Django test-client execution for a hand-written shop request, then
+  baseline validation before allowing proposals into the comparison matrix.
 - Integrate static-analysis context with scenario/seed planning and reports.
 - Register scenario records with the checkpoint serializer when plans are added
   to saved graph state.
