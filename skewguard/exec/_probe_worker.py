@@ -199,6 +199,38 @@ def commit_model_writes(model_labels: list[str]) -> list[dict[str, object]]:
     return outcomes
 
 
+def execute_http_get(scenario_id: str, path: str) -> dict[str, object]:
+    """Dispatch one anonymous GET through the checkout's URLconf and middleware."""
+    test = import_module("django.test")
+    settings = import_module("django.conf").settings
+    with test.override_settings(ALLOWED_HOSTS=[*settings.ALLOWED_HOSTS, "testserver"]):
+        client = test.Client(raise_request_exception=True)
+        try:
+            response = client.get(path, follow=False)
+        except Exception as error:
+            integrity_error = import_module("django.db").IntegrityError
+            return {
+                "scenario_id": scenario_id,
+                "status": "exception",
+                "exception_type": type(error).__name__,
+                "exception_message": str(error),
+                "integrity_error": isinstance(error, integrity_error),
+            }
+
+        if response.streaming:
+            response.close()
+            raise ValueError("streaming HTTP responses are not supported")
+        media_type = response.get("Content-Type", "").partition(";")[0].strip().lower()
+        is_json = media_type == "application/json" or media_type.endswith("+json")
+        body = json.loads(response.content) if is_json and response.content else None
+        return {
+            "scenario_id": scenario_id,
+            "status": "http_status",
+            "http_status": response.status_code,
+            "body": body,
+        }
+
+
 def main() -> None:
     request = json.load(sys.stdin)
     sys.path.insert(0, sys.argv[1])
@@ -206,18 +238,25 @@ def main() -> None:
     django = import_module("django")
     settings = import_module("django.conf").settings
     connections = import_module("django.db").connections
-    if set(settings.DATABASES) != {"default"} or settings.DATABASE_ROUTERS:
-        raise RuntimeError("Probe worker requires one default database without routers")
-    settings.DATABASES = {"default": request["database"]}
-
     try:
         with redirect_stdout(sys.stderr):
+            connections.settings = connections.configure_settings(
+                {"default": request["database"]}
+            )
+            if set(settings.DATABASES) != {"default"} or settings.DATABASE_ROUTERS:
+                raise RuntimeError(
+                    "Probe worker requires one default database without routers"
+                )
+            settings.DATABASES = connections.settings
             django.setup()
             if request["operation"] == "seed":
                 import_module("django.core.management").call_command(
                     "loaddata", request["fixture"], database="default", verbosity=0
                 )
                 outcomes = []
+            elif request["operation"] == "http_get":
+                scenario = request["scenario"]
+                outcomes = [execute_http_get(scenario["scenario_id"], scenario["path"])]
             else:
                 if request["operation"] not in {"read", "write", "commit"}:
                     raise ValueError("unknown probe worker operation")
@@ -236,7 +275,10 @@ def main() -> None:
     finally:
         connections.close_all()
 
-    print(json.dumps(outcomes, default=str))
+    if request["operation"] == "http_get":
+        print(json.dumps(outcomes, allow_nan=False))
+    else:
+        print(json.dumps(outcomes, default=str))
 
 
 if __name__ == "__main__":
