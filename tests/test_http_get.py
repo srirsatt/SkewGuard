@@ -31,7 +31,7 @@ def request(**options: object) -> Scenario:
     [
         {"method": "POST", "kind": "write", "body": {"name": "Book"}},
         {"as_user": "buyer"},
-        {"compare_fields": ["products"]},
+        {"method": "HEAD"},
     ],
 )
 def test_executor_rejects_unsupported_options_before_dispatch(
@@ -39,7 +39,7 @@ def test_executor_rejects_unsupported_options_before_dispatch(
     options: dict[str, object],
 ) -> None:
     state, resources = graph_inputs
-    with pytest.raises(ValueError, match="anonymous GETs without field selection"):
+    with pytest.raises(ValueError, match="anonymous GETs"):
         run_http_get(
             state.config,
             resources.base,
@@ -58,7 +58,7 @@ def test_shop_get_uses_real_view_and_selected_release_across_a_rename(
 ) -> None:
     config, releases = shop_releases
     base, head = releases["base"], releases["rename"]
-    scenario = request()
+    scenario = request(compare_fields=["products"])
     settings = "shop.settings"
     with managed_postgres(config) as server:
         d0 = clone_database(config, server)
