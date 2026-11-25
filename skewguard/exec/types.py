@@ -86,6 +86,17 @@ class ComparisonPolicy(BaseModel):
 
     compare_body: bool = Field(default=False, strict=True)
     volatile_fields: frozenset[str] = frozenset()
+    compare_fields: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_field_selection(self) -> Self:
+        if self.compare_fields and not self.compare_body:
+            raise ValueError("selecting response fields requires body comparison")
+        if any(not key.strip() for key in self.compare_fields):
+            raise ValueError("selected response fields must be nonblank")
+        if len(self.compare_fields) != len(set(self.compare_fields)):
+            raise ValueError("selected response fields must be unique")
+        return self
 
 
 class CandidateDivergence(BaseModel):
