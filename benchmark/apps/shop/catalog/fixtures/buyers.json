@@ -1,0 +1,20 @@
+[
+  {
+    "model": "auth.user",
+    "pk": 1,
+    "fields": {
+      "username": "buyer",
+      "password": "!",
+      "date_joined": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 2,
+    "fields": {
+      "username": "seller",
+      "password": "!",
+      "date_joined": "2024-01-01T00:00:00Z"
+    }
+  }
+]
