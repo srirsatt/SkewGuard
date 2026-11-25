@@ -735,6 +735,20 @@ same ID/store. The last completed graph step is retained. The demo script refuse
 existing destinations, configures Git identity only for its own commands, and
 creates no remote. The default checkpoint directory is ignored by this repository.
 
+To exercise the shop's product-list view on the base release, use the same demo
+repository:
+
+```bash
+uv run python examples/shop_http_get.py "$demo_root/shop"
+```
+
+This example migrates and seeds a disposable database, sends an anonymous
+`GET /products/` through Django's test client, and prints the HTTP status and
+products JSON. The CLI matrix currently runs ORM probes. The HTTP executor is
+available separately through `run_http_get`. It preserves redirect status
+without following redirects, captures view exceptions, and records a body for
+buffered JSON responses. A streaming response is an unsupported execution.
+
 ## Development checks
 
 ```bash
