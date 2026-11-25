@@ -369,6 +369,12 @@
   integration covers baseline success, a missing route returning 404, the
   old view failing on the renamed column, and the head view returning its
   migrated response. Project-wide Pyright and targeted Ruff checks pass.
+- The shop fixture accepts JSON POSTs on `/products/` and validates product
+  input before creation. The HTTP transport forwards a scenario's method and
+  body and preserves the GET-only entry point. POST body encoding is pending;
+  both POST tests currently fail at that function. In isolation, a reference
+  encoder passed both tests, including the 201/400 responses and an independent
+  check of persisted PostgreSQL rows. The 55 selected existing checks pass.
 
 ## In progress
 
@@ -400,7 +406,8 @@
 ## Next
 
 - Add explicit ordering probes.
-- Extend HTTP execution to request bodies, authenticated seeded users, and
+- Finish POST body encoding and verify the two POST checks with the repository
+  worker. Then extend HTTP execution to authenticated seeded users and
   selected response fields. Qualify scenarios on A0D0 and integrate accepted
   requests with the four cells and fresh replays.
 - Integrate static-analysis context with scenario/seed planning and reports.
