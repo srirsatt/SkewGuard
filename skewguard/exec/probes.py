@@ -35,7 +35,7 @@ def _run_worker(
     database: DatabaseConnection,
     *,
     settings_module: str,
-    operation: Literal["seed", "read", "write", "commit", "http_get"],
+    operation: Literal["seed", "read", "write", "commit", "http"],
     fixture: str | None = None,
     model_labels: list[str] | None = None,
     scenario: Scenario | None = None,
@@ -116,12 +116,36 @@ def run_http_get(
         or scenario.compare_fields
     ):
         raise ValueError("executor supports anonymous GETs without field selection")
+    return run_http_scenario(
+        config, environment, database,
+        settings_module=settings_module, scenario=scenario,
+    )
+
+
+def run_http_scenario(
+    config: RunConfig,
+    environment: PythonEnvironment,
+    database: DatabaseConnection,
+    *,
+    settings_module: str,
+    scenario: Scenario,
+) -> Outcome:
+    """Execute an anonymous GET or POST on the caller's disposable database.
+
+    The endpoint controls its transactions. Successful POST writes can persist.
+    """
+    if (
+        scenario.method not in {"GET", "POST"}
+        or scenario.as_user is not None
+        or scenario.compare_fields
+    ):
+        raise ValueError("expected anonymous GET or POST without field selection")
     results = _run_worker(
         config,
         environment,
         database,
         settings_module=settings_module,
-        operation="http_get",
+        operation="http",
         scenario=scenario,
     )
     if len(results) != 1 or results[0].scenario_id != scenario.scenario_id:
