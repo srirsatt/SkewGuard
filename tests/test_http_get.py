@@ -30,7 +30,6 @@ def request(**options: object) -> Scenario:
     "options",
     [
         {"method": "POST", "kind": "write", "body": {"name": "Book"}},
-        {"as_user": "buyer"},
         {"method": "HEAD"},
     ],
 )
@@ -39,7 +38,7 @@ def test_executor_rejects_unsupported_options_before_dispatch(
     options: dict[str, object],
 ) -> None:
     state, resources = graph_inputs
-    with pytest.raises(ValueError, match="anonymous GETs"):
+    with pytest.raises(ValueError, match="expected a GET scenario"):
         run_http_get(
             state.config,
             resources.base,
