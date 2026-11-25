@@ -1,4 +1,4 @@
-"""Execute ORM probes and fixture inserts in a release's Django environment."""
+"""Run ORM probes, HTTP requests, and fixture inserts in a release's environment."""
 
 import json
 import subprocess
@@ -19,6 +19,7 @@ from skewguard.exec.runner import (
     migration_input,
     redact_database_password,
 )
+from skewguard.exec.scenarios import Scenario
 from skewguard.exec.types import Outcome
 
 _WORKER_PATH = Path(__file__).with_name("_probe_worker.py")
@@ -34,9 +35,10 @@ def _run_worker(
     database: DatabaseConnection,
     *,
     settings_module: str,
-    operation: Literal["seed", "read", "write", "commit"],
+    operation: Literal["seed", "read", "write", "commit", "http_get"],
     fixture: str | None = None,
     model_labels: list[str] | None = None,
+    scenario: Scenario | None = None,
 ) -> list[Outcome]:
     validate_environment(environment)
     backend = backend_directory(config, environment.checkout)
@@ -47,6 +49,8 @@ def _run_worker(
         model_labels=model_labels,
         row_limit=config.probe_row_limit,
     )
+    if scenario is not None:
+        payload["scenario"] = scenario.model_dump(mode="json")
     try:
         result = subprocess.run(
             [str(environment.python), "-I", str(_WORKER_PATH), str(backend)],
@@ -95,6 +99,36 @@ def seed_database(
         operation="seed",
         fixture=fixture,
     )
+
+
+def run_http_get(
+    config: RunConfig,
+    environment: PythonEnvironment,
+    database: DatabaseConnection,
+    *,
+    settings_module: str,
+    scenario: Scenario,
+) -> Outcome:
+    """Execute one anonymous GET, retaining the HTTP status and any JSON body."""
+    if (
+        scenario.method != "GET"
+        or scenario.as_user is not None
+        or scenario.compare_fields
+    ):
+        raise ValueError("executor supports anonymous GETs without field selection")
+    results = _run_worker(
+        config,
+        environment,
+        database,
+        settings_module=settings_module,
+        operation="http_get",
+        scenario=scenario,
+    )
+    if len(results) != 1 or results[0].scenario_id != scenario.scenario_id:
+        raise ProbeExecutionError("HTTP worker returned missing or mismatched evidence")
+    if results[0].status not in {"http_status", "exception"}:
+        raise ProbeExecutionError("HTTP outcome requires a status code or exception")
+    return results[0]
 
 
 def run_read_probes(
