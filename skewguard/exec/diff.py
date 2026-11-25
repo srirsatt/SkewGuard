@@ -98,7 +98,12 @@ def select_response_fields(
     body: JsonValue, fields: tuple[str, ...]
 ) -> dict[str, JsonValue]:
     """Return present top-level fields, including nulls; non-objects yield {}."""
-    raise NotImplementedError("response field selection is pending")
+    
+    # select the right key for check
+    if not isinstance(body, dict):
+        return {}
+
+    return {key: body[key] for key in fields if key in body} # if key in body, return key of body
 
 
 def missing_baseline_fields(
