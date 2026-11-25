@@ -110,12 +110,8 @@ def run_http_get(
     scenario: Scenario,
 ) -> Outcome:
     """Execute one anonymous GET, retaining the HTTP status and any JSON body."""
-    if (
-        scenario.method != "GET"
-        or scenario.as_user is not None
-        or scenario.compare_fields
-    ):
-        raise ValueError("executor supports anonymous GETs without field selection")
+    if scenario.method != "GET" or scenario.as_user is not None:
+        raise ValueError("executor supports anonymous GETs")
     return run_http_scenario(
         config, environment, database,
         settings_module=settings_module, scenario=scenario,
@@ -134,12 +130,8 @@ def run_http_scenario(
 
     The endpoint controls its transactions. Successful POST writes can persist.
     """
-    if (
-        scenario.method not in {"GET", "POST"}
-        or scenario.as_user is not None
-        or scenario.compare_fields
-    ):
-        raise ValueError("expected anonymous GET or POST without field selection")
+    if scenario.method not in {"GET", "POST"} or scenario.as_user is not None:
+        raise ValueError("expected anonymous GET or POST")
     results = _run_worker(
         config,
         environment,
