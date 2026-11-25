@@ -201,7 +201,9 @@ def commit_model_writes(model_labels: list[str]) -> list[dict[str, object]]:
 
 def encode_post_body(body: object) -> bytes:
     """Encode a scenario's JSON value as UTF-8 bytes, rejecting NaN and infinity."""
-    raise NotImplementedError("JSON POST body encoding is pending")
+    
+    text = json.dumps(body, ensure_ascii=False, allow_nan=False)
+    return text.encode("utf-8")
 
 
 def execute_http_request(
