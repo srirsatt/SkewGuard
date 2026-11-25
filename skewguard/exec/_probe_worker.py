@@ -8,6 +8,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from hashlib import sha256
 from importlib import import_module
+from types import SimpleNamespace
 from uuid import UUID
 
 
@@ -206,10 +207,20 @@ def encode_post_body(body: object) -> bytes:
     return text.encode("utf-8")
 
 
+def resolve_seeded_user(identifier: str) -> object:
+    """Find one existing user by the checkout's login field in the sandbox database.
+
+    Raise ProbeValueError for an absent, ambiguous, or invalid identifier.
+    Database errors must propagate as execution evidence.
+    """
+    raise NotImplementedError("seeded user lookup is pending")
+
+
 def execute_http_request(
-    scenario_id: str, method: str, path: str, request_body: object
+    scenario_id: str, method: str, path: str, request_body: object,
+    *, as_user: str | None = None,
 ) -> dict[str, object]:
-    """Send an anonymous request to the selected checkout and capture its result."""
+    """Send a request using a fresh anonymous or authenticated test client."""
     if method not in {"GET", "POST"}:
         raise ValueError("HTTP worker supports GET and POST")
     payload = encode_post_body(request_body) if method == "POST" else None
@@ -218,6 +229,15 @@ def execute_http_request(
     with test.override_settings(ALLOWED_HOSTS=[*settings.ALLOWED_HOSTS, "testserver"]):
         client = test.Client(raise_request_exception=True)
         try:
+            if as_user is not None:
+                apps = import_module("django.apps").apps
+                if not apps.is_installed("django.contrib.auth"):
+                    raise ProbeValueError("as_user requires Django session auth")
+                user = resolve_seeded_user(as_user)
+                client.force_login(user)
+                auth = import_module("django.contrib.auth")
+                if auth.get_user(SimpleNamespace(session=client.session)) != user:
+                    raise ProbeValueError("the session could not load the seeded user")
             if method == "POST":
                 response = client.post(
                     path, data=payload, content_type="application/json", follow=False
@@ -275,7 +295,7 @@ def main() -> None:
                 scenario = request["scenario"]
                 outcomes = [execute_http_request(
                     scenario["scenario_id"], scenario["method"],
-                    scenario["path"], scenario["body"],
+                    scenario["path"], scenario["body"], as_user=scenario.get("as_user"),
                 )]
             else:
                 if request["operation"] not in {"read", "write", "commit"}:
