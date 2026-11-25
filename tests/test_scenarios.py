@@ -73,6 +73,21 @@ def test_anonymous_request_defaults_to_status_checks(
     assert saved["compare_fields"] == []
 
 
+@pytest.mark.parametrize("price", [float("nan"), float("inf"), float("-inf")])
+def test_request_rejects_numbers_that_would_be_serialized_as_null(
+    request_spec: dict[str, object], price: float,
+) -> None:
+    spec = {
+        **request_spec,
+        "method": "POST",
+        "kind": "write",
+        "body": {"products": [{"price": price}]},
+    }
+
+    with pytest.raises(ValidationError):
+        Scenario.model_validate(spec)
+
+
 def test_request_keeps_encoded_query_parameters(
     request_spec: dict[str, object],
 ) -> None:
