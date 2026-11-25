@@ -5,7 +5,7 @@
 | Milestone | Status |
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
-| 2: graph and generation | Three-node graph, SQLite recovery, CLI progress, resume, and HTTP scenario schema implemented; HTTP execution and agents remain |
+| 2: graph and generation | Three-node graph, SQLite recovery, CLI progress, HTTP scenario schema, and standalone anonymous GET execution implemented; matrix integration and agents remain |
 | 3: comparison, triage, reports, CLI | Deterministic verification, reports, and CLI implemented; triage remains |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
@@ -355,7 +355,20 @@
   agreement, request bodies, optional user identifiers, and response field names.
   Non-finite request numbers are rejected to prevent a saved request from
   silently substituting null. All 60 scenario cases and 29 existing outcome
-  cases pass, as does project-wide Pyright. HTTP execution is still pending.
+  cases pass, as does project-wide Pyright.
+- `run_http_get` runs an anonymous request in the selected checkout through the
+  Django test client. The worker records the status and buffered JSON body, or
+  the exception raised by the view. The launcher validates the outcome and its
+  request ID. Unsupported request options are rejected before execution.
+- The shop walkthrough exercised both CLI releases on disposable PostgreSQL.
+  The nullable addition reported no break, the rename reproduced old-code read
+  and insert failures in both skew cells, and completed resume returned the
+  same JSON report. Separately, the standalone HTTP example returned HTTP 200
+  and the seeded Pen and Notebook products from the base checkout.
+- With Docker/PostgreSQL enabled, the full suite passes all 507 tests. HTTP
+  integration covers baseline success, a missing route returning 404, the
+  old view failing on the renamed column, and the head view returning its
+  migrated response. Project-wide Pyright and targeted Ruff checks pass.
 
 ## In progress
 
@@ -387,8 +400,9 @@
 ## Next
 
 - Add explicit ordering probes.
-- Implement Django test-client execution for a hand-written shop request, then
-  baseline validation before allowing proposals into the comparison matrix.
+- Extend HTTP execution to request bodies, authenticated seeded users, and
+  selected response fields. Qualify scenarios on A0D0 and integrate accepted
+  requests with the four cells and fresh replays.
 - Integrate static-analysis context with scenario/seed planning and reports.
 - Register scenario records with the checkpoint serializer when plans are added
   to saved graph state.
