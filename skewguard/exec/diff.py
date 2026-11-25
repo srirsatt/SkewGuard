@@ -94,11 +94,33 @@ def validate_comparison_pair(baseline: Outcome, observed: Outcome, cell: Cell) -
         raise ValueError("comparison requires matching scenario IDs")
 
 
+def select_response_fields(
+    body: JsonValue, fields: tuple[str, ...]
+) -> dict[str, JsonValue]:
+    """Return present top-level fields, including nulls; non-objects yield {}."""
+    raise NotImplementedError("response field selection is pending")
+
+
+def missing_baseline_fields(
+    outcome: Outcome, policy: ComparisonPolicy | None
+) -> tuple[str, ...]:
+    """A selected key must be observable in the old release's baseline response."""
+    if policy is None or not policy.compare_fields:
+        return ()
+    body = outcome.body
+    if not isinstance(body, dict):
+        return policy.compare_fields
+    return tuple(key for key in policy.compare_fields if key not in body)
+
+
 def body_comparison_key(outcome: Outcome, policy: ComparisonPolicy) -> str:
     """Serialize normalized bodies without Python bool/int equality collapsing types."""
-    normalized = normalize_outcome(outcome, volatile_fields=policy.volatile_fields)
+    body = outcome.body
+    if policy.compare_fields:
+        body = select_response_fields(body, policy.compare_fields)
+    normalized = normalize_value(body, volatile_fields=policy.volatile_fields)
     return json.dumps(
-        normalized.body, sort_keys=True, separators=(",", ":"), allow_nan=False
+        normalized, sort_keys=True, separators=(",", ":"), allow_nan=False
     )
 
 
@@ -120,7 +142,11 @@ def compare_outcomes(
 
     # make sure its valid evidence via helpers
 
-    if not baseline_is_usable(baseline) or probe_input_is_unavailable(observed):
+    if (
+        not baseline_is_usable(baseline)
+        or missing_baseline_fields(baseline, selected)
+        or probe_input_is_unavailable(observed)
+    ):
         return None
 
     # classify exception type
@@ -192,6 +218,19 @@ def compare_matrix(
                     kind=kind,
                     scenario_id=outcome.scenario_id,
                     message="The check has no successful baseline.",
+                    outcome=outcome,
+                )
+            )
+
+        elif missing := missing_baseline_fields(
+            outcome, selected_policies.get(outcome.scenario_id)
+        ):
+            issues.append(
+                ComparisonIssue(
+                    cell=Cell.A0D0,
+                    kind=ComparisonIssueKind.BASELINE_FAILED,
+                    scenario_id=outcome.scenario_id,
+                    message="Baseline response lacks keys: " + ", ".join(missing),
                     outcome=outcome,
                 )
             )
