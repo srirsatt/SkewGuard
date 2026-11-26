@@ -431,6 +431,10 @@
   and seed again produced `POST /products/` with `amount` in `compare_fields`.
   The old release returned HTTP 201 with `price`, and qualification rejected
   the missing key.
+- A third run added an instruction to check each selected key against the old
+  endpoint. The model still selected `amount` and described a post-migration
+  test. The baseline POST returned HTTP 201 with `price`; qualification again
+  rejected `amount`.
 
 ## Execution design
 
