@@ -141,15 +141,28 @@ def verify_matrix(
     attempts: list[ReproductionAttempt] = []
     decisions: list[ReproductionDecision] = []
     if initial.candidates:
+        replay_config = config
+        replay_options: dict[str, frozenset[str]] = {}
+        if config.scenarios:
+            accepted = next(
+                cell.qualified_scenarios
+                for cell in initial_cells
+                if cell.cell == Cell.A0D0
+            )
+            replay_config = config.model_copy(update={"scenarios": accepted})
+            replay_options["required_rollback_writes"] = frozenset(
+                item.scenario_id for item in accepted if item.kind == "write"
+            )
         for number in (1, 2):
             try:
                 cells = run_matrix(
-                    config,
+                    replay_config,
                     base,
                     head,
                     server,
                     settings_module=settings_module,
                     seed_fixture=seed_fixture,
+                    **replay_options,
                 )
                 attempt = ReproductionAttempt(
                     number=number,
