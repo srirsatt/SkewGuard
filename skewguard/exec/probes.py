@@ -23,6 +23,7 @@ from skewguard.exec.scenarios import Scenario
 from skewguard.exec.types import Outcome
 
 _WORKER_PATH = Path(__file__).with_name("_probe_worker.py")
+SUPPORTED_HTTP_METHODS = frozenset({"GET", "POST"})
 
 
 class ProbeExecutionError(RuntimeError):
@@ -130,7 +131,7 @@ def run_http_scenario(
 
     The endpoint controls its transactions. Successful POST writes can persist.
     """
-    if scenario.method not in {"GET", "POST"}:
+    if scenario.method not in SUPPORTED_HTTP_METHODS:
         raise ValueError("expected GET or POST")
     results = _run_worker(
         config,
