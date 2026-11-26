@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from skewguard.agents.scenario import ScenarioAttempt
 from skewguard.config import RunConfig
 from skewguard.exec.types import VerificationResult
 from skewguard.report.json_report import RunReport
@@ -24,6 +25,8 @@ class RunState(BaseModel):
     seed_fixture: str | None = Field(default=None, min_length=1)
 
     static_context: StaticContext | None = None
+    proposal_reply: str = ""
+    scenario_attempts: tuple[ScenarioAttempt, ...] = ()
     verification: VerificationResult | None = None
     report: RunReport | None = None
 
