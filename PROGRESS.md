@@ -398,7 +398,9 @@
 - HTTP qualification runs each supported proposal on a temporary clone of
   the seeded old-release database. The executor retains the observed outcome,
   returns unsupported-method feedback before dispatch, and propagates worker
-  and database setup failures. The baseline acceptance rule is pending.
+  and database setup failures. A matching HTTP response qualifies when its
+  status is 200–399 and it contains all selected top-level fields. Exceptions,
+  unsuccessful statuses, and missing fields produce rejection feedback.
 - Static metadata records, the isolated worker, parent launcher, and comparison
   support are implemented, including the addition selector. SQL records, worker,
   launcher, and orchestration are implemented. Code-reference scanning and its
@@ -421,8 +423,7 @@
 ## Next
 
 - Add explicit ordering probes.
-- Complete the HTTP baseline acceptance rule, then integrate qualified
-  requests with the four cells and fresh replays.
+- Integrate qualified HTTP requests with the four cells and fresh replays.
 - Integrate static-analysis context with scenario/seed planning and reports.
 - Register scenario records with the checkpoint serializer when plans are added
   to saved graph state.
