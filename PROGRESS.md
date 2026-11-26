@@ -5,7 +5,7 @@
 | Milestone | Status |
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
-| 2: graph and generation | Three-node graph, SQLite recovery, CLI progress, scenario schema, and standalone anonymous GET and POST execution implemented; HTTP matrix integration and agents remain |
+| 2: graph and generation | Three-node graph, SQLite recovery, CLI progress, HTTP matrix execution, scenario proposal schema, and initial system prompt implemented. Model invocation and retry routing remain. |
 | 3: comparison, triage, reports, CLI | Deterministic verification, reports, and CLI implemented; triage remains |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
@@ -420,6 +420,9 @@
 - LangGraph state, run-scoped resource bindings, execution/report nodes, initial
   graph assembly, CLI wiring, SQLite recovery, and typed progress streaming are
   implemented. Agent generation/fan-out/validation loops and tracing remain.
+- The scenario agent's output schema accepts one HTTP scenario or an explicit
+  skip and requires a reason for either. The initial prompt grounds proposals
+  in old-release routes and view code.
 
 ## Execution design
 
