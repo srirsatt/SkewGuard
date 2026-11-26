@@ -20,5 +20,7 @@ Choose compare_fields only from top-level keys visible in the response.
 If the supplied code shows no relevant HTTP endpoint, return a null scenario
 and explain what evidence is missing. Use the migration to decide which data to exercise, 
 and use the old release's routes and view or serializer code to choose the request
-and top-level response keys to compare.
+and top-level response keys to compare. For every key inserted into compare_fields,
+check the supplied old-release code that returns that key. If evidence can't be found
+there for that key, the key should be left out of the response.
 """
