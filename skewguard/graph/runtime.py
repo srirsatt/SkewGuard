@@ -1,6 +1,6 @@
 """Run-scoped resource locations supplied separately from checkpointed state."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from skewguard.exec.db import DatabaseConnection
 from skewguard.exec.envs import (
@@ -8,11 +8,12 @@ from skewguard.exec.envs import (
     backend_directory,
     validate_environment,
 )
+from skewguard.exec.matrix import prepare_old_snapshot
 from skewguard.exec.worktree import CheckoutPair
 from skewguard.graph.state import RunState
 
 
-@dataclass(frozen=True)
+@dataclass
 class RunResources:
     """Borrow prepared resources; their owning context managers handle cleanup.
 
@@ -25,6 +26,16 @@ class RunResources:
     base: PythonEnvironment
     head: PythonEnvironment
     server: DatabaseConnection
+    _scenario_snapshot: DatabaseConnection | None = field(default=None, init=False)
+
+    def scenario_snapshot(self, state: RunState) -> DatabaseConnection:
+        """Keep one seeded template for all proposal attempts in this session."""
+        if self._scenario_snapshot is None:
+            self._scenario_snapshot = prepare_old_snapshot(
+                state.config, self.base, self.server,
+                settings_module=state.settings_module, seed_fixture=state.seed_fixture,
+            )
+        return self._scenario_snapshot
 
 
 def validate_resources(state: RunState, resources: RunResources | None) -> RunResources:
