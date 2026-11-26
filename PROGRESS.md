@@ -401,6 +401,16 @@
   and database setup failures. A matching HTTP response qualifies when its
   status is 200–399 and it contains all selected top-level fields. Exceptions,
   unsuccessful statuses, and missing fields produce rejection feedback.
+- The CLI accepts a JSON array via `--scenarios`. Qualified HTTP requests
+  run alongside ORM probes in the four cells. Rollback compares old-code
+  reads after new writes with an old-release control after equivalent writes.
+  Replays reuse the initially qualified requests on fresh snapshots. Reports
+  and SQLite checkpoints preserve scenario inputs and execution evidence.
+- The shop rollback fixture reproduces an old-reader exception only after
+  the new writer creates a backordered product. In the separate nullable-field
+  demo, the observed HTTP 400 on the new release identifies a model validation
+  failure for blank notes and leaves the rollback write setup incomplete.
+  The full suite passed all 539 tests with PostgreSQL enabled. Pyright passed.
 - Static metadata records, the isolated worker, parent launcher, and comparison
   support are implemented, including the addition selector. SQL records, worker,
   launcher, and orchestration are implemented. Code-reference scanning and its
@@ -423,10 +433,7 @@
 ## Next
 
 - Add explicit ordering probes.
-- Integrate qualified HTTP requests with the four cells and fresh replays.
 - Integrate static-analysis context with scenario/seed planning and reports.
-- Register scenario records with the checkpoint serializer when plans are added
-  to saved graph state.
 - Keep worktree, environment, and container lifetimes in the session manager;
   pass fresh runtime resources to resumed nodes.
 - Configure CI and pre-commit checks.
