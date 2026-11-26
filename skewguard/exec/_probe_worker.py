@@ -200,6 +200,45 @@ def commit_model_writes(model_labels: list[str]) -> list[dict[str, object]]:
     return outcomes
 
 
+def insert_seed_row(model_label: str, fields: dict[str, object]) -> dict[str, object]:
+    """Validate and commit a proposed row using this checkout's model definition."""
+    scenario_id = f"seed:{model_label}"
+    db = import_module("django.db")
+    validation_error = import_module("django.core.exceptions").ValidationError
+    try:
+        model = import_module("django.apps").apps.get_model(model_label)
+        attributes = {
+            alias: field.attname
+            for field in model._meta.concrete_fields
+            if not getattr(field, "generated", False)
+            for alias in (field.name, field.attname)
+        }
+        values: dict[str, object] = {}
+        for name, value in fields.items():
+            if name not in attributes:
+                raise ProbeValueError(
+                    f"Unknown or generated field: {model_label}.{name}"
+                )
+            attribute = attributes[name]
+            if attribute in values:
+                raise ProbeValueError(f"Multiple values for {model_label}.{attribute}")
+            values[attribute] = value
+        with db.transaction.atomic(using="default"):
+            row = model(**values)
+            row.full_clean()
+            row.save(using="default", force_insert=True)
+    except (LookupError, ProbeValueError, validation_error, db.IntegrityError,
+            db.DataError) as error:
+        return {
+            "scenario_id": scenario_id,
+            "status": "exception",
+            "exception_type": type(error).__name__,
+            "exception_message": str(error),
+            "integrity_error": isinstance(error, db.IntegrityError),
+        }
+    return {"scenario_id": scenario_id, "status": "ok", "body": {"pk": row.pk}}
+
+
 def encode_post_body(body: object) -> bytes:
     """Encode a scenario's JSON value as UTF-8 bytes, rejecting NaN and infinity."""
     
@@ -305,6 +344,9 @@ def main() -> None:
                     "loaddata", request["fixture"], database="default", verbosity=0
                 )
                 outcomes = []
+            elif request["operation"] == "insert_seed":
+                proposal = request["proposal"]
+                outcomes = [insert_seed_row(proposal["model"], proposal["fields"])]
             elif request["operation"] == "http":
                 scenario = request["scenario"]
                 outcomes = [execute_http_request(
