@@ -10,9 +10,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from skewguard.config import RunConfig
 from skewguard.exec.diff import compare_matrix
+from skewguard.exec.scenarios import Scenario
 from skewguard.exec.types import (
     CandidateDivergence,
     Cell,
+    CellResult,
     ComparisonIssue,
     ComparisonPolicy,
     VerificationResult,
@@ -38,6 +40,7 @@ class ReportContext(BaseModel):
     seed_fixture: str | None = None
     timeout_seconds: int = Field(gt=0, strict=True)
     probe_row_limit: int = Field(gt=0, strict=True)
+    scenarios: tuple[Scenario, ...] = ()
     comparison_policies: dict[str, ComparisonPolicy] = Field(
         default_factory=dict[str, ComparisonPolicy]
     )
@@ -146,11 +149,16 @@ class RunReport(BaseModel):
         """Recompute comparisons and decisions rather than trusting saved labels."""
         verification = self.verification
         policies = self.context.comparison_policies
+        accepted = validate_http_plan(
+            verification.initial_cells, self.context.scenarios
+        )
         if compare_matrix(verification.initial_cells, policies=policies) != (
             verification.initial_comparison
         ):
             raise ValueError("initial comparison conflicts with its cell evidence")
         for attempt in verification.attempts:
+            if attempt.cells is not None:
+                validate_http_plan(attempt.cells, accepted)
             if (
                 attempt.cells is not None
                 and compare_matrix(attempt.cells, policies=policies)
@@ -169,6 +177,25 @@ class RunReport(BaseModel):
         if self.summary != summarize_verification(verification):
             raise ValueError("report summary conflicts with verification evidence")
         return self
+
+
+def validate_http_plan(
+    cells: list[CellResult], proposals: tuple[Scenario, ...]
+) -> tuple[Scenario, ...]:
+    """Account for every supplied proposal and preserve the requests used in replays."""
+    baseline = next((cell for cell in cells if cell.cell == Cell.A0D0), None)
+    if baseline is None:
+        raise ValueError("HTTP qualification requires baseline cell evidence")
+    rejected = {issue.scenario_id for issue in baseline.execution_issues}
+    proposed_ids = {scenario.scenario_id for scenario in proposals}
+    accepted = tuple(s for s in proposals if s.scenario_id not in rejected)
+    if (
+        len(proposed_ids) != len(proposals)
+        or not proposed_ids.issuperset(rejected)
+        or accepted != baseline.qualified_scenarios
+    ):
+        raise ValueError("qualified HTTP checks conflict with proposed scenarios")
+    return accepted
 
 
 def build_report(
@@ -192,7 +219,11 @@ def build_report(
         seed_fixture=seed_fixture,
         timeout_seconds=config.timeout_seconds,
         probe_row_limit=config.probe_row_limit,
-        comparison_policies=dict(policies or {}),
+        scenarios=config.scenarios,
+        comparison_policies={
+            **{s.scenario_id: s.comparison_policy() for s in config.scenarios},
+            **(policies or {}),
+        },
     )
     return RunReport(
         context=context,
