@@ -99,6 +99,19 @@ def render_markdown(report: RunReport) -> str:
         if context.scenario_attempts[-1].status != "accepted":
             lines.append("The matrix ran without a generated HTTP scenario.")
 
+    if context.seed_model:
+        lines.extend(["", "### Seed generation", ""])
+        for index, attempt in enumerate(context.seed_attempts, 1):
+            lines.append(
+                f"{index}. {attempt.status.capitalize()} for "
+                f"{escape_markdown(attempt.scenario_id)} — "
+                f"{escape_markdown(attempt.detail)}"
+            )
+        if context.seed_skip_reason:
+            lines.append(f"Skipped: {context.seed_skip_reason}.")
+        elif context.generated_seed is None:
+            lines.append("The matrix ran without a generated seed row.")
+
     additional = replay_only_candidates(verification)
     if additional:
         lines.extend(
