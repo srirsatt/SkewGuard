@@ -9,6 +9,7 @@ from typing import Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from skewguard.agents.scenario import ScenarioAttempt
+from skewguard.agents.seed import SeedAttempt, SeedProposal
 from skewguard.config import RunConfig
 from skewguard.exec.diff import compare_matrix
 from skewguard.exec.scenarios import Scenario
@@ -41,6 +42,10 @@ class ReportContext(BaseModel):
     seed_fixture: str | None = None
     timeout_seconds: int = Field(gt=0, strict=True)
     probe_row_limit: int = Field(gt=0, strict=True)
+    seed_model: str | None = None
+    generated_seed: SeedProposal | None = None
+    seed_attempts: tuple[SeedAttempt, ...] = ()
+    max_llm_calls: int = Field(default=2, ge=1)
     scenario_model: str | None = None
     scenario_attempts: tuple[ScenarioAttempt, ...] = ()
     scenarios: tuple[Scenario, ...] = ()
@@ -48,8 +53,32 @@ class ReportContext(BaseModel):
         default_factory=dict[str, ComparisonPolicy]
     )
 
+    @property
+    def seed_skip_reason(self) -> str | None:
+        if not self.seed_model or self.seed_attempts:
+            return None
+        if len(self.scenario_attempts) >= self.max_llm_calls:
+            return "shared model-call budget exhausted"
+        return "no GET scenario available"
+
     @model_validator(mode="after")
     def validate_generation_history(self) -> Self:
+        if len(self.seed_attempts) + len(self.scenario_attempts) > self.max_llm_calls:
+            raise ValueError("proposal attempts exceed the shared call budget")
+        if self.seed_attempts:
+            *previous, final = self.seed_attempts
+            if not self.seed_model or len(previous) > 3:
+                raise ValueError("seed generation needs a model and allows four turns")
+            if any(
+                turn.status != "rejected" or turn.scenario_id != final.scenario_id
+                for turn in previous
+            ):
+                raise ValueError("only rejected seeds for the same GET can be retried")
+            if final.status == "accepted" and final.proposal is None:
+                raise ValueError("accepted seed is missing its row")
+            expected = final.proposal if final.status == "accepted" else None
+            if self.generated_seed != expected:
+                raise ValueError("seed history conflicts with the matrix seed")
         if not self.scenario_attempts:
             return self
         *earlier, last = self.scenario_attempts
@@ -222,6 +251,7 @@ def build_report(
     seed_fixture: str | None = None,
     policies: dict[str, ComparisonPolicy] | None = None,
     scenario_attempts: tuple[ScenarioAttempt, ...] = (),
+    seed_attempts: tuple[SeedAttempt, ...] = (),
 ) -> RunReport:
     """Capture pinned commits and verification evidence before checkouts disappear."""
     context = ReportContext(
@@ -237,6 +267,10 @@ def build_report(
         probe_row_limit=config.probe_row_limit,
         scenarios=config.scenarios,
         scenario_model=config.scenario_model,
+        seed_model=config.seed_model,
+        generated_seed=config.generated_seed,
+        seed_attempts=seed_attempts,
+        max_llm_calls=config.max_llm_calls,
         scenario_attempts=scenario_attempts,
         comparison_policies={
             **{s.scenario_id: s.comparison_policy() for s in config.scenarios},
