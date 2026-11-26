@@ -7,11 +7,13 @@ from uuid import uuid4
 
 import typer
 from langgraph.errors import GraphRecursionError
+from pydantic import TypeAdapter
 
 from skewguard.config import RunConfig
 from skewguard.exec import db, envs, worktree
 from skewguard.exec.probes import ProbeExecutionError
 from skewguard.exec.runner import MigrationError
+from skewguard.exec.scenarios import Scenario
 from skewguard.graph import session
 from skewguard.graph.checkpoints import DEFAULT_CHECKPOINT
 from skewguard.report import json_report
@@ -136,8 +138,11 @@ def run_command(
             "--probe-row-limit", min=1, help="Maximum rows per ORM read probe."
         ),
     ] = 10,
+    scenarios: Annotated[
+        Path | None, typer.Option("--scenarios", help="JSON array of HTTP scenarios.")
+    ] = None,
 ) -> None:
-    """Execute ORM checks and two fresh replays for any detected failures.
+    """Execute ORM and supplied HTTP checks with fresh replays for detected failures.
 
     Exit codes: 0 no break detected, 1 confirmed break, 2 setup/input/output error,
     3 inconclusive. All conclusions apply only to the checks actually executed.
@@ -152,6 +157,10 @@ def run_command(
     json_path, markdown_path = output_paths(json_output, markdown_output)
     checkpoint_path = checkpoint_output_path(checkpoint, (json_path, markdown_path))
     try:
+        if scenarios and scenarios.resolve() in (
+            json_path, markdown_path, checkpoint_path
+        ):
+            raise ValueError("scenario input must differ from outputs and checkpoint")
         config = RunConfig(
             repo_path=repo,
             base_ref=base,
@@ -159,6 +168,10 @@ def run_command(
             backend_path=backend,
             timeout_seconds=timeout,
             probe_row_limit=probe_row_limit,
+            scenarios=(
+                TypeAdapter(tuple[Scenario, ...]).validate_json(scenarios.read_bytes())
+                if scenarios else ()
+            ),
         )
         run_id = uuid4().hex
         typer.echo(f"Run ID: {run_id}", err=True)
