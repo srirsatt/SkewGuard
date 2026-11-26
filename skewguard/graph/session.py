@@ -73,7 +73,13 @@ def completed_report(state: RunState) -> RunReport:
         "scenarios": state.config.scenarios,
         "scenario_model": state.config.scenario_model,
         "scenario_attempts": state.scenario_attempts,
+        "seed_model": state.config.seed_model,
+        "generated_seed": state.config.generated_seed,
+        "seed_attempts": state.seed_attempts,
     }
+    # Older reports did not record the shared call cap.
+    if "max_llm_calls" in report.context.model_fields_set:
+        expected["max_llm_calls"] = state.config.max_llm_calls
     if any(getattr(report.context, name) != value for name, value in expected.items()):
         raise CheckpointError("saved report conflicts with graph run inputs")
     return report
