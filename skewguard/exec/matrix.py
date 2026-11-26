@@ -181,17 +181,11 @@ def collect_baseline(
     ), rollback_issues
 
 
-def run_matrix(
-    config: RunConfig,
-    base: PythonEnvironment,
-    head: PythonEnvironment,
-    server: DatabaseConnection,
-    *,
-    settings_module: str,
-    seed_fixture: str | None = None,
-    required_rollback_writes: frozenset[str] = frozenset(),
-) -> list[CellResult]:
-    """Run all four cells using independent clones of untouched snapshots."""
+def prepare_old_snapshot(
+    config: RunConfig, base: PythonEnvironment, server: DatabaseConnection,
+    *, settings_module: str, seed_fixture: str | None,
+) -> DatabaseConnection:
+    """Prepare the old schema and fixture on a new, run-owned database."""
     old_snapshot = clone_database(config, server)
     run_migrations(config, base, old_snapshot, settings_module=settings_module)
 
@@ -203,6 +197,23 @@ def run_matrix(
             settings_module=settings_module,
             fixture=seed_fixture,
         )
+    return old_snapshot
+
+
+def run_matrix(
+    config: RunConfig,
+    base: PythonEnvironment,
+    head: PythonEnvironment,
+    server: DatabaseConnection,
+    *,
+    settings_module: str,
+    seed_fixture: str | None = None,
+    required_rollback_writes: frozenset[str] = frozenset(),
+) -> list[CellResult]:
+    """Run all four cells using independent clones of untouched snapshots."""
+    old_snapshot = prepare_old_snapshot(
+        config, base, server, settings_module=settings_module, seed_fixture=seed_fixture
+    )
     baseline, rollback_issues = collect_baseline(
         config,
         base,
