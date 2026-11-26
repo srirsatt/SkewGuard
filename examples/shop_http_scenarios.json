@@ -1,0 +1,16 @@
+[
+  {
+    "scenario_id": "http:products:list",
+    "method": "GET",
+    "kind": "read",
+    "path": "/products/",
+    "compare_fields": ["products"]
+  },
+  {
+    "scenario_id": "http:products:create",
+    "method": "POST",
+    "kind": "write",
+    "path": "/products/",
+    "body": {"sku": "MUG", "name": "Mug", "price": 12, "stock": 4}
+  }
+]
