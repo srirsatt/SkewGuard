@@ -7,7 +7,7 @@ Python environments, PostgreSQL database copying, and Django migration execution
 are implemented. The shop fixture, seed-data loader, ORM read/write probes,
 and four-cell matrix execution are available. Outcome normalization, comparison,
 and fresh-state reproduction checks are implemented. LangGraph connects static
-analysis, optional HTTP scenario generation, execution verification, and reporting.
+analysis, optional scenario and seed generation, execution verification, and reporting.
 
 `skewguard run` prepares isolated releases and PostgreSQL, verifies migration
 behavior, streams phase progress, and writes versioned JSON evidence plus Markdown.
@@ -54,4 +54,20 @@ If the proposal fails either check, the model receives
 the checker’s feedback and gets one revision. The report records both attempts
 when a retry occurs. If neither qualifies, the matrix continues with the ORM
 probes and any supplied scenarios. Use `--max-llm-calls 1` to disable the retry.
-Omit `--scenario-model` to run entirely with supplied checks and ORM probes.
+This command generates a seed for the supplied shop GET.
+
+```bash
+uv run skewguard run --repo /tmp/skewguard-demo --base base --head breaking \
+  --settings shop.settings --seed products --scenarios examples/shop_http_scenarios.json \
+  --seed-model qwen2.5-coder:7b
+```
+
+The seed agent proposes one row for the first supplied GET, or for a generated
+GET when the supplied plan has none. Each attempt tries an insert with the old
+Django models on a private copy of the fixture. On rejection, the agent receives
+the error and can retry up to three times within `--max-llm-calls` (default 2,
+shared with `--scenario-model`). Accepted rows are inserted after the named
+fixture each time the baseline is rebuilt, including during replays. The report
+lists seed attempts and the accepted row. An accepted insert establishes that
+the old database can store the row. The HTTP outcomes show what the view returned.
+Omitting both model options runs only the supplied checks and ORM probes.
