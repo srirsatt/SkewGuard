@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 
+from skewguard.agents.seed import SeedProposal
 from skewguard.exec.db import DatabaseConnection
 from skewguard.exec.envs import (
     PythonEnvironment,
@@ -27,14 +28,17 @@ class RunResources:
     head: PythonEnvironment
     server: DatabaseConnection
     _scenario_snapshot: DatabaseConnection | None = field(default=None, init=False)
+    _snapshot_seed: SeedProposal | None = field(default=None, init=False)
 
     def scenario_snapshot(self, state: RunState) -> DatabaseConnection:
         """Keep one seeded template for all proposal attempts in this session."""
-        if self._scenario_snapshot is None:
+        seed = state.config.generated_seed
+        if self._scenario_snapshot is None or self._snapshot_seed != seed:
             self._scenario_snapshot = prepare_old_snapshot(
                 state.config, self.base, self.server,
                 settings_module=state.settings_module, seed_fixture=state.seed_fixture,
             )
+            self._snapshot_seed = seed
         return self._scenario_snapshot
 
 
