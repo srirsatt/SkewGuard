@@ -71,6 +71,8 @@ def completed_report(state: RunState) -> RunReport:
         "timeout_seconds": state.config.timeout_seconds,
         "probe_row_limit": state.config.probe_row_limit,
         "scenarios": state.config.scenarios,
+        "scenario_model": state.config.scenario_model,
+        "scenario_attempts": state.scenario_attempts,
     }
     if any(getattr(report.context, name) != value for name, value in expected.items()):
         raise CheckpointError("saved report conflicts with graph run inputs")
