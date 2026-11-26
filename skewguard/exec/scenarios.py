@@ -1,6 +1,6 @@
 """Validated request descriptions for Django HTTP scenario execution."""
 
-from typing import Literal, Self
+from typing import TYPE_CHECKING, Literal, Self
 
 from pydantic import (
     BaseModel, 
@@ -11,7 +11,8 @@ from pydantic import (
     model_validator,
 )
 
-from skewguard.exec.types import ComparisonPolicy
+if TYPE_CHECKING:
+    from skewguard.exec.types import ComparisonPolicy
 
 type HttpMethod = Literal["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"]
 type ScenarioKind = Literal["read", "write"]
@@ -37,8 +38,10 @@ class Scenario(BaseModel):
     compare_fields: list[str] = Field(default_factory=list)
     # agent scenario fields
 
-    def comparison_policy(self) -> ComparisonPolicy:
+    def comparison_policy(self) -> "ComparisonPolicy":
         """Use status checks by default and body comparison for selected keys."""
+        from skewguard.exec.types import ComparisonPolicy
+
         return ComparisonPolicy(
             compare_body=bool(self.compare_fields),
             compare_fields=tuple(self.compare_fields),
