@@ -16,7 +16,19 @@ def baseline_rejection_reason(scenario: Scenario, outcome: Outcome) -> str | Non
     """
     if outcome.scenario_id != scenario.scenario_id or outcome.status == "ok":
         raise ValueError("qualification requires matching HTTP scenario evidence")
-    raise NotImplementedError("HTTP baseline decision is pending")
+    
+    # http baseline check
+    if outcome.status == "exception":
+        return f"{outcome.exception_type}: {outcome.exception_message}"
+    
+    if not diff.baseline_is_usable(outcome):
+        return f"Baseline returned HTTP {outcome.http_status}"
+    
+    missing = diff.missing_baseline_fields(outcome, scenario.comparison_policy())
+    if missing:
+        return "baseline response lacks keys: " + ", ".join(missing)
+    
+    return None
 
 
 def qualify_scenario(
