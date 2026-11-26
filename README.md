@@ -7,7 +7,7 @@ Python environments, PostgreSQL database copying, and Django migration execution
 are implemented. The shop fixture, seed-data loader, ORM read/write probes,
 and four-cell matrix execution are available. Outcome normalization, comparison,
 and fresh-state reproduction checks are implemented. LangGraph connects static
-analysis, execution verification, and reporting. Agent generation remains planned.
+analysis, optional HTTP scenario generation, execution verification, and reporting.
 
 `skewguard run` prepares isolated releases and PostgreSQL, verifies migration
 behavior, streams phase progress, and writes versioned JSON evidence plus Markdown.
@@ -41,4 +41,17 @@ uv run python scripts/make_demo_repo.py /tmp/skewguard-demo
 
 The destination must not already exist. The generated `base`, `safe`, and
 `breaking` refs are described in the [CLI demo guide](docs/getting-started.md#manual-cli-demo).
-The current deterministic workflow requires Docker and uv; it makes no model calls.
+With Docker and a running Ollama instance, you can ask a locally installed model
+to propose one HTTP scenario for the demo shop.
+
+```bash
+uv run skewguard run --repo /tmp/skewguard-demo --base base --head breaking \
+  --settings shop.settings --seed products --scenario-model qwen2.5-coder:7b
+```
+
+SkewGuard validates each proposal and tries the request on the old release.
+If the proposal fails either check, the model receives
+the checker’s feedback and gets one revision. The report records both attempts
+when a retry occurs. If neither qualifies, the matrix continues with the ORM
+probes and any supplied scenarios. Use `--max-llm-calls 1` to disable the retry.
+Omit `--scenario-model` to run entirely with supplied checks and ORM probes.
