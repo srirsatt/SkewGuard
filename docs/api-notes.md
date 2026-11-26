@@ -2,7 +2,7 @@
 
 The agent, graph, tracing, Ollama adapter and official MCP SDK versions were
 checked against PyPI on 2026-11-26. The CLI uses SQLite checkpoints, typed
-progress events and opt-in HTTP scenario generation through local Ollama.
+progress events and opt-in scenario and seed generation through local Ollama.
 
 ## Versions
 
@@ -18,12 +18,15 @@ progress events and opt-in HTTP scenario generation through local Ollama.
 | `filelock` | `4.2.12` | [PyPI](https://pypi.org/project/filelock/4.2.12/) |
 | `langchain-ollama` | `1.2.0` | [PyPI](https://pypi.org/project/langchain-ollama/1.2.0/) |
 
-The scenario node constructs a local chat model with `init_chat_model` and
+The scenario and seed nodes construct a local chat model with `init_chat_model` and
 `model_provider="ollama"`. A tool-free `create_agent` uses JSON mode and
 `ModelCallLimitMiddleware(run_limit=1)`. The outer graph parses each answer
 with `ScenarioProposal.model_validate_json`, executes the proposed request on
 A0D0 and owns the single repair turn. This keeps model calls visible across
-graph checkpoints, including attempts that produce invalid JSON.
+graph checkpoints, including attempts that produce invalid JSON. For seeds,
+the model node parses the reply into a typed draft and the validation node
+receives it across the checkpoint boundary. Conditional edges route rejected
+inserts back to generation. Scenario and seed calls share the run budget.
 [Ollama integration](https://docs.langchain.com/oss/python/integrations/chat/ollama)
 [Model call limits](https://docs.langchain.com/oss/python/langchain/middleware/built-in)
 
