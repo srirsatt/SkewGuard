@@ -5,6 +5,8 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
+from skewguard.exec.scenarios import Scenario
+
 
 class Cell(StrEnum):
     A0D0 = "A0D0"  # a - application, d - db. old app, old database
@@ -45,29 +47,6 @@ class Outcome(BaseModel):
 
         if self.integrity_error and self.status != "exception":
             raise ValueError("integrity_error requires status='exception'")
-
-        return self
-
-
-class CellResult(BaseModel):
-    """Outcomes collected from one matrix cell."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    cell: Cell
-    outcomes: list[Outcome]
-
-    @model_validator(mode="after")
-    def validate_unique_scenarios(self) -> Self:
-        """Reject ambiguous duplicate scenario IDs within a cell."""
-        seen: set[str] = set()
-        for outcome in self.outcomes:
-            if outcome.scenario_id in seen:
-                raise ValueError(
-                    f"duplicate scenario_id in cell {self.cell.value}: "
-                    f"{outcome.scenario_id}"
-                )
-            seen.add(outcome.scenario_id)
 
         return self
 
@@ -142,6 +121,49 @@ class ComparisonIssue(BaseModel):
     message: str = Field(min_length=1)
     scenario_id: str | None = None
     outcome: Outcome | None = None
+
+
+class CellResult(BaseModel):
+    """Outcomes collected from one matrix cell."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    cell: Cell
+    outcomes: list[Outcome]
+    qualified_scenarios: tuple[Scenario, ...] = ()
+    execution_issues: tuple[ComparisonIssue, ...] = ()
+    rollback_writes: tuple[Outcome, ...] = ()
+    rollback_controls: tuple[Outcome, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_unique_scenarios(self) -> Self:
+        """Reject ambiguous duplicate scenario IDs within a cell."""
+        seen: set[str] = set()
+        for outcome in self.outcomes:
+            if outcome.scenario_id in seen:
+                raise ValueError(
+                    f"duplicate scenario_id in cell {self.cell.value}: "
+                    f"{outcome.scenario_id}"
+                )
+            seen.add(outcome.scenario_id)
+
+        if any(issue.cell != self.cell for issue in self.execution_issues):
+            raise ValueError("execution issues must identify their cell")
+        if self.cell != Cell.A0D0 and (
+            self.qualified_scenarios or self.rollback_controls
+        ):
+            raise ValueError("HTTP qualification and rollback controls belong to A0D0")
+        if self.rollback_writes and self.cell not in {Cell.A0D0, Cell.A0D1W}:
+            raise ValueError("rollback writes require a rollback or control database")
+        accepted = [scenario.scenario_id for scenario in self.qualified_scenarios]
+        if len(set(accepted)) != len(accepted) or not seen.issuperset(accepted):
+            raise ValueError(
+                "qualified scenarios require unique matching baseline evidence"
+            )
+        for batch in (self.rollback_controls, self.rollback_writes):
+            if len({item.scenario_id for item in batch}) != len(batch):
+                raise ValueError("duplicate scenario_id in rollback evidence")
+        return self
 
 
 class ComparisonResult(BaseModel):
