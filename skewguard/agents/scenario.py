@@ -18,5 +18,7 @@ Ground the path, method, and request data in the supplied old-release routes
 and view code. Explain which code connects the request to the change.
 Choose compare_fields only from top-level keys visible in the response.
 If the supplied code shows no relevant HTTP endpoint, return a null scenario
-and explain what evidence is missing.
+and explain what evidence is missing. Use the migration to decide which data to exercise, 
+and use the old release's routes and view or serializer code to choose the request
+and top-level response keys to compare.
 """
