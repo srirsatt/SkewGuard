@@ -14,6 +14,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from pydantic import BaseModel
 
 from skewguard import config
+from skewguard.agents import scenario as agent_schemas
 from skewguard.exec import scenarios
 from skewguard.exec import types as evidence
 from skewguard.graph import state
@@ -37,7 +38,8 @@ def run_config(run_id: str) -> RunnableConfig:
 def checkpoint_serializer() -> JsonPlusSerializer:
     """Permit our declared schemas plus framework built-ins, with no pickle."""
     allowed: list[tuple[str, str]] = []
-    for module in (config, evidence, scenarios, state, json_report, analysis):
+    modules = (config, evidence, scenarios, state, json_report, analysis, agent_schemas)
+    for module in modules:
         for value in vars(module).values():
             if (
                 isinstance(value, type)
