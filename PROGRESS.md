@@ -435,6 +435,10 @@
   endpoint. The model still selected `amount` and described a post-migration
   test. The baseline POST returned HTTP 201 with `price`; qualification again
   rejected `amount`.
+- A single local retry with the same committed prompt received the checker's
+  missing-key message and the actual response keys. The model replaced
+  `amount` with `price`, and the POST qualified with HTTP 201 on a fresh
+  baseline clone. Its explanation still referred to the post-migration field.
 
 ## Execution design
 
