@@ -182,6 +182,75 @@ def compare_outcomes(
     )
 
 
+def rollback_references(
+    old: CellResult,
+    rollback: CellResult,
+    baseline: dict[str, Outcome],
+    policies: dict[str, ComparisonPolicy],
+    issues: list[ComparisonIssue],
+) -> dict[str, Outcome] | None:
+    """Pair old reads after head writes with old reads after equivalent base writes."""
+    writes = [s.scenario_id for s in old.qualified_scenarios if s.kind == "write"]
+    batches = [("head", rollback.rollback_writes)]
+    if old.rollback_controls:
+        batches.append(("base", old.rollback_writes))
+    for release, batch in batches:
+        if [item.scenario_id for item in batch] != writes:
+            issues.append(
+                ComparisonIssue(
+                    cell=Cell.A0D1W,
+                    kind=ComparisonIssueKind.ROLLBACK_SETUP_FAILED,
+                    message=f"Unexpected HTTP write sequence on the {release} release.",
+                )
+            )
+            return None
+        for item in batch:
+            if (
+                not baseline_is_usable(item)
+                or item.http_status != baseline[item.scenario_id].http_status
+            ):
+                issues.append(
+                    ComparisonIssue(
+                        cell=Cell.A0D1W,
+                        kind=ComparisonIssueKind.ROLLBACK_SETUP_FAILED,
+                        outcome=item,
+                        message=(
+                            f"The {release} write {item.scenario_id} "
+                            "did not reproduce its baseline status."
+                        ),
+                    )
+                )
+                return None
+
+    references = baseline.copy()
+    controls = {item.scenario_id: item for item in old.rollback_controls}
+    for scenario in old.qualified_scenarios:
+        key = scenario.scenario_id
+        del references[key]
+        if scenario.kind == "write":
+            continue
+        control = controls.get(key)
+        if (
+            control
+            and baseline_is_usable(control)
+            and not missing_baseline_fields(control, policies.get(key))
+        ):
+            references[key] = control
+        elif not any(
+            issue.cell == Cell.A0D1W and issue.scenario_id == key for issue in issues
+        ):
+            issues.append(
+                ComparisonIssue(
+                    cell=Cell.A0D1W,
+                    kind=ComparisonIssueKind.ROLLBACK_SETUP_FAILED,
+                    scenario_id=key,
+                    outcome=control,
+                    message="The old-release read lacks a usable post-write baseline.",
+                )
+            )
+    return references
+
+
 def compare_matrix(
     cells: list[CellResult],
     *,
@@ -196,12 +265,17 @@ def compare_matrix(
     if len(by_cell) != len(cells) or set(by_cell) != set(Cell):
         raise ValueError("comparison requires exactly one result for every cell")
 
-    selected_policies = policies or {}
+    old_cell = by_cell[Cell.A0D0]
+    selected_policies = {
+        item.scenario_id: item.comparison_policy()
+        for item in old_cell.qualified_scenarios
+    }
+    selected_policies.update(policies or {})
     baseline = {
         outcome.scenario_id: outcome for outcome in by_cell[Cell.A0D0].outcomes
     }
     candidates: list[CandidateDivergence] = []
-    issues: list[ComparisonIssue] = []
+    issues = [issue for result in cells for issue in result.execution_issues]
     for cell in (Cell.A0D0, Cell.A1D1):
         if not by_cell[cell].outcomes:
             issues.append(
@@ -242,6 +316,7 @@ def compare_matrix(
             )
 
     for cell in (Cell.A0D1, Cell.A0D1W):
+        references = baseline
         observed = {outcome.scenario_id: outcome for outcome in by_cell[cell].outcomes}
         setup = {
             key
@@ -259,7 +334,19 @@ def compare_matrix(
                 )
             )
             continue
-        for key, old in baseline.items():
+        if cell == Cell.A0D1W:
+            if any(
+                issue.cell == cell and issue.scenario_id is None for issue in issues
+            ):
+                continue
+            if old_cell.qualified_scenarios:
+                paired = rollback_references(
+                    old_cell, by_cell[cell], baseline, selected_policies, issues
+                )
+                if paired is None:
+                    continue
+                references = paired
+        for key, old in references.items():
             new = observed.get(key)
             if new is None:
                 issues.append(
