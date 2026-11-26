@@ -94,6 +94,15 @@ def finish_report(
             f"Generated HTTP scenario: {attempts[-1].status} "
             f"after {len(attempts)} model call(s).", err=True
         )
+    if report.context.seed_model:
+        turns = report.context.seed_attempts
+        status = (
+            turns[-1].status
+            if turns else f"skipped ({report.context.seed_skip_reason})"
+        )
+        typer.echo(
+            f"Generated seed: {status} after {len(turns)} model call(s).", err=True
+        )
     typer.echo(STATUS_LABELS[report.summary.status])
     typer.echo(f"JSON: {json_path}")
     typer.echo(f"Markdown: {markdown_path}")
@@ -149,9 +158,14 @@ def run_command(
             "--scenario-model", help="Generate an HTTP check with a local Ollama model."
         )
     ] = None,
+    seed_model: Annotated[
+        str | None, typer.Option(
+            "--seed-model", help="Local Ollama model for one GET seed row."
+        )
+    ] = None,
     max_llm_calls: Annotated[
         int, typer.Option(
-            "--max-llm-calls", min=1, help="Budget for generation (one retry at most)."
+            "--max-llm-calls", min=1, help="Shared call budget for scenarios and seeds."
         )
     ] = 2,
     scenarios: Annotated[
@@ -185,6 +199,7 @@ def run_command(
             timeout_seconds=timeout,
             probe_row_limit=probe_row_limit,
             scenario_model=scenario_model,
+            seed_model=seed_model,
             max_llm_calls=max_llm_calls,
             scenarios=(
                 TypeAdapter(tuple[Scenario, ...]).validate_json(scenarios.read_bytes())
