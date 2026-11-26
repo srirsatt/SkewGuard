@@ -5,7 +5,7 @@
 | Milestone | Status |
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
-| 2: graph and generation | HTTP scenario generation, one feedback-driven retry on A0D0, matrix execution, SQLite resume, and CLI progress implemented. Seed generation remains. |
+| 2: graph and generation | HTTP scenario generation, one feedback-driven retry on A0D0, matrix execution, SQLite resume, and CLI progress implemented. Seed generation, insert validation, bounded retries, and shared call budgets are implemented. |
 | 3: comparison, triage, reports, CLI | Deterministic verification, reports, and CLI implemented; triage remains |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
@@ -462,6 +462,12 @@
   omits the in-stock control. Separate checks cover duplicate SKUs and a
   field name present only in the head release.
 
+- The seed graph proposes one row for a GET and validates it on a private
+  old-database clone. Parser and insert errors feed bounded retries. An accepted
+  proposal is checkpointed and applied after fixture loading in each matrix and
+  replay. A live shop run repaired a malformed reply and returned the inserted
+  SKU in all three baseline reads.
+
 ## Execution design
 
 - Clone PostgreSQL template databases so each cell and reproduction attempt
@@ -474,12 +480,11 @@
 ## Next
 
 - Add explicit ordering probes.
-- Extend static-analysis context to seed planning and triage.
+- Ground triage explanations in the migration operations and code references.
 - Keep worktree, environment, and container lifetimes in the session manager;
   pass fresh runtime resources to resumed nodes.
 - Configure CI and pre-commit checks.
-- Connect seed generation to the tested insert operation, return validation
-  feedback on failed proposals, and share the model-call budget across agents.
+- Extend execution-backed triage to reproducible findings and validate citations.
 
 ## Open questions
 
