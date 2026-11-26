@@ -8,6 +8,7 @@ from skewguard.exec.db import DatabaseConnection, clone_database, temporary_clon
 from skewguard.exec.envs import PythonEnvironment
 from skewguard.exec.probes import (
     ProbeExecutionError,
+    insert_seed_proposal,
     run_committed_writes,
     run_http_scenario,
     run_read_probes,
@@ -197,6 +198,16 @@ def prepare_old_snapshot(
             settings_module=settings_module,
             fixture=seed_fixture,
         )
+    if config.generated_seed is not None:
+        result = insert_seed_proposal(
+            config, base, old_snapshot, settings_module=settings_module,
+            proposal=config.generated_seed,
+        )
+        if result.status != "ok":
+            raise ProbeExecutionError(
+                f"Could not restore accepted seed: {result.exception_type}: "
+                f"{result.exception_message}"
+            )
     return old_snapshot
 
 
