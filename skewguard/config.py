@@ -4,6 +4,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from skewguard.agents.seed import SeedProposal
 from skewguard.exec.scenarios import Scenario
 
 
@@ -31,6 +32,8 @@ class RunConfig(BaseModel):
     timeout_seconds: int = Field(default=60, gt=0, strict=True)
     probe_row_limit: int = Field(default=10, gt=0, strict=True)
     scenario_model: str | None = Field(default=None, min_length=1)
+    seed_model: str | None = Field(default=None, min_length=1)
+    generated_seed: SeedProposal | None = None
     max_llm_calls: int = Field(default=2, ge=1, strict=True)
     scenarios: tuple[Scenario, ...] = ()
 
