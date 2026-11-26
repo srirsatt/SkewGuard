@@ -3,6 +3,7 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from skewguard.agents.scenario import ScenarioAttempt
+from skewguard.agents.seed import SeedAttempt, SeedDraft
 from skewguard.config import RunConfig
 from skewguard.exec.types import VerificationResult
 from skewguard.report.json_report import RunReport
@@ -27,8 +28,17 @@ class RunState(BaseModel):
     static_context: StaticContext | None = None
     proposal_reply: str = ""
     scenario_attempts: tuple[ScenarioAttempt, ...] = ()
+    scenario_pending: bool = False
+    seed_draft: SeedDraft | None = None
+    seed_attempts: tuple[SeedAttempt, ...] = ()
     verification: VerificationResult | None = None
     report: RunReport | None = None
+
+    @property
+    def remaining_model_calls(self) -> int:
+        """Include the scenario reply awaiting qualification while seeds are tried."""
+        spent = len(self.scenario_attempts) + len(self.seed_attempts)
+        return self.config.max_llm_calls - spent - int(self.scenario_pending)
 
     @field_validator("settings_module")
     @classmethod
