@@ -16,12 +16,16 @@ from skewguard.graph.state import RunState
 if TYPE_CHECKING:
     from skewguard.graph.build import VerificationGraph
 
-type NodeName = Literal["static_analyze", "execute_matrix", "report"]
+type NodeName = Literal[
+    "static_analyze", "propose_scenario", "qualify_proposal", "execute_matrix", "report"
+]
 type ProgressCallback = Callable[[str], None]
 
 NODE_LABELS: dict[str, str] = {
     "static_analyze": "static analysis",
     "execute_matrix": "matrix and reproduction checks",
+    "propose_scenario": "HTTP scenario generation",
+    "qualify_proposal": "HTTP scenario qualification on A0D0",
     "report": "report generation",
 }
 
