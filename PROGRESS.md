@@ -395,6 +395,10 @@
   checks. The worker resolves the login through the checkout's user manager.
   Missing, ambiguous, or invalid user identifiers produce an input error.
   Database query failures retain their original exception type.
+- HTTP qualification runs each supported proposal on a temporary clone of
+  the seeded old-release database. The executor retains the observed outcome,
+  returns unsupported-method feedback before dispatch, and propagates worker
+  and database setup failures. The baseline acceptance rule is pending.
 - Static metadata records, the isolated worker, parent launcher, and comparison
   support are implemented, including the addition selector. SQL records, worker,
   launcher, and orchestration are implemented. Code-reference scanning and its
@@ -417,8 +421,8 @@
 ## Next
 
 - Add explicit ordering probes.
-- Qualify HTTP scenarios on A0D0 and integrate accepted requests with the
-  four cells and fresh replays.
+- Complete the HTTP baseline acceptance rule, then integrate qualified
+  requests with the four cells and fresh replays.
 - Integrate static-analysis context with scenario/seed planning and reports.
 - Register scenario records with the checkpoint serializer when plans are added
   to saved graph state.
