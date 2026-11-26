@@ -8,6 +8,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from skewguard.agents.scenario import ScenarioAttempt
 from skewguard.config import RunConfig
 from skewguard.exec.diff import compare_matrix
 from skewguard.exec.scenarios import Scenario
@@ -40,11 +41,25 @@ class ReportContext(BaseModel):
     seed_fixture: str | None = None
     timeout_seconds: int = Field(gt=0, strict=True)
     probe_row_limit: int = Field(gt=0, strict=True)
+    scenario_model: str | None = None
+    scenario_attempts: tuple[ScenarioAttempt, ...] = ()
     scenarios: tuple[Scenario, ...] = ()
     comparison_policies: dict[str, ComparisonPolicy] = Field(
         default_factory=dict[str, ComparisonPolicy]
     )
 
+    @model_validator(mode="after")
+    def validate_generation_history(self) -> Self:
+        if not self.scenario_attempts:
+            return self
+        *earlier, last = self.scenario_attempts
+        if not self.scenario_model or len(earlier) > 1:
+            raise ValueError("generation requires a model and at most two turns")
+        if any(turn.status != "rejected" for turn in earlier):
+            raise ValueError("only a rejected proposal may be retried")
+        if last.status == "accepted" and last.scenario not in self.scenarios:
+            raise ValueError("accepted generated scenario is missing from the plan")
+        return self
 
 class ReportSummary(BaseModel):
     """Observed results of the executed checks; no field claims universal safety."""
@@ -206,6 +221,7 @@ def build_report(
     settings_module: str,
     seed_fixture: str | None = None,
     policies: dict[str, ComparisonPolicy] | None = None,
+    scenario_attempts: tuple[ScenarioAttempt, ...] = (),
 ) -> RunReport:
     """Capture pinned commits and verification evidence before checkouts disappear."""
     context = ReportContext(
@@ -220,6 +236,8 @@ def build_report(
         timeout_seconds=config.timeout_seconds,
         probe_row_limit=config.probe_row_limit,
         scenarios=config.scenarios,
+        scenario_model=config.scenario_model,
+        scenario_attempts=scenario_attempts,
         comparison_policies={
             **{s.scenario_id: s.comparison_policy() for s in config.scenarios},
             **(policies or {}),
