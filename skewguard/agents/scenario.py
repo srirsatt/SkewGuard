@@ -1,5 +1,7 @@
 # what can an agent propose in a scenario?
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field # for verification
 
 from skewguard.exec.scenarios import Scenario
@@ -22,5 +24,14 @@ and explain what evidence is missing. Use the migration to decide which data to 
 and use the old release's routes and view or serializer code to choose the request
 and top-level response keys to compare. For every key inserted into compare_fields,
 check the supplied old-release code that returns that key. If evidence can't be found
-there for that key, the key should be left out of the response.
+there for that key, the key should be left out of compare_fields.
 """
+
+class ScenarioAttempt(BaseModel):
+    """The checker decision for one generated proposal, in chronological order."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    status: Literal["accepted", "rejected", "skipped"]
+    detail: str = Field(min_length=1)
+    scenario: Scenario | None = None
