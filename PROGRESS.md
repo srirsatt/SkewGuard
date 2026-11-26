@@ -427,6 +427,10 @@
   produced a valid `POST /products/` proposal. The seeded old release returned
   HTTP 201 with `price`. Qualification rejected the proposed comparison against
   `amount`, which was absent from the response. This ran outside the agent graph.
+- Repeating the experiment with the revised prompt, the same model, fixture,
+  and seed again produced `POST /products/` with `amount` in `compare_fields`.
+  The old release returned HTTP 201 with `price`, and qualification rejected
+  the missing key.
 
 ## Execution design
 
