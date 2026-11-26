@@ -88,6 +88,12 @@ def finish_report(
     """Write the evidence and use the same result status for new and resumed runs."""
     json_report.write_json_report(report, json_path)
     json_report.write_text(markdown_path, render_markdown(report))
+    attempts = report.context.scenario_attempts
+    if attempts:
+        typer.echo(
+            f"Generated HTTP scenario: {attempts[-1].status} "
+            f"after {len(attempts)} model call(s).", err=True
+        )
     typer.echo(STATUS_LABELS[report.summary.status])
     typer.echo(f"JSON: {json_path}")
     typer.echo(f"Markdown: {markdown_path}")
@@ -138,6 +144,16 @@ def run_command(
             "--probe-row-limit", min=1, help="Maximum rows per ORM read probe."
         ),
     ] = 10,
+    scenario_model: Annotated[
+        str | None, typer.Option(
+            "--scenario-model", help="Generate an HTTP check with a local Ollama model."
+        )
+    ] = None,
+    max_llm_calls: Annotated[
+        int, typer.Option(
+            "--max-llm-calls", min=1, help="Budget for generation (one retry at most)."
+        )
+    ] = 2,
     scenarios: Annotated[
         Path | None, typer.Option("--scenarios", help="JSON array of HTTP scenarios.")
     ] = None,
@@ -168,6 +184,8 @@ def run_command(
             backend_path=backend,
             timeout_seconds=timeout,
             probe_row_limit=probe_row_limit,
+            scenario_model=scenario_model,
+            max_llm_calls=max_llm_calls,
             scenarios=(
                 TypeAdapter(tuple[Scenario, ...]).validate_json(scenarios.read_bytes())
                 if scenarios else ()
