@@ -12,19 +12,31 @@ from langchain_core.messages import AIMessage, HumanMessage
 from ollama import ResponseError
 
 from skewguard.agents.scenario import SCENARIO_SYSTEM_PROMPT, ScenarioProposal
+from skewguard.agents.seed import SeedProposal
+from skewguard.exec.scenarios import Scenario
 from skewguard.static.code_refs import SKIP_DIRECTORIES
 from skewguard.static.types import StaticContext
 
 
-def source_evidence(context: StaticContext, checkout: Path, backend: Path) -> str:
+def source_evidence(
+    context: StaticContext, checkout: Path, backend: Path,
+    *, seed_for: Scenario | None = None,
+) -> str:
     """Supply migration metadata, URL configs and affected old application files."""
     paths: list[Path] = []
+    fallback: list[Path] = []
     for directory, dirs, files in backend.walk():
         dirs[:] = sorted(name for name in dirs if name not in SKIP_DIRECTORIES)
         if "urls.py" in files:
             paths.append(directory / "urls.py")
+        if seed_for is not None:
+            fallback.extend(
+                directory / name for name in ("models.py", "views.py", "serializers.py")
+                if name in files
+            )
     referenced = {checkout / ref.source.path for ref in context.base_code.references}
     paths.extend(sorted(referenced, key=lambda p: (p.name == "models.py", p)))
+    paths.extend(fallback)
     sources: dict[str, str] = {}
     remaining = 18000
     for path in dict.fromkeys(paths):
@@ -51,13 +63,15 @@ def source_evidence(context: StaticContext, checkout: Path, backend: Path) -> st
             if len(line) <= budget:
                 changes.append(line)
                 budget -= len(line)
-    return json.dumps(
-        {
-            "migration_changes": changes,
-            "old_release_source": sources,
-            "response_json_schema": ScenarioProposal.model_json_schema(),
-        }
-    )
+    evidence: dict[str, object] = {
+        "migration_changes": changes,
+        "old_release_source": sources,
+        "response_json_schema": ScenarioProposal.model_json_schema(),
+    }
+    if seed_for is not None:
+        evidence["proposed_request"] = seed_for.model_dump(mode="json")
+        evidence["response_json_schema"] = SeedProposal.model_json_schema()
+    return json.dumps(evidence)
 
 
 def generate_reply(
@@ -67,6 +81,7 @@ def generate_reply(
     *,
     previous: str,
     feedback: str,
+    system_prompt: str = SCENARIO_SYSTEM_PROMPT,
 ) -> str:
     """Perform exactly one model turn. The outer graph owns repair decisions."""
     model = init_chat_model(
@@ -83,7 +98,7 @@ def generate_reply(
     agent = create_agent(
         model,
         tools=[],
-        system_prompt=SCENARIO_SYSTEM_PROMPT,
+        system_prompt=system_prompt,
         middleware=[ModelCallLimitMiddleware(run_limit=1, exit_behavior="error")],
     )
     inputs: InputAgentState = {"messages": [HumanMessage(content=evidence)]}
@@ -102,5 +117,5 @@ def generate_reply(
             version="v2",
         ).value
     except (ConnectionError, httpx.HTTPError, ResponseError) as error:
-        raise ValueError(f"Ollama could not generate a scenario: {error}") from error
+        raise ValueError(f"Ollama could not generate a proposal: {error}") from error
     return result["messages"][-1].text
