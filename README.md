@@ -11,6 +11,8 @@ analysis, execution verification, and reporting. Agent generation remains planne
 
 `skewguard run` prepares isolated releases and PostgreSQL, verifies migration
 behavior, streams phase progress, and writes versioned JSON evidence plus Markdown.
+Use `--scenarios examples/shop_http_scenarios.json` with the demo shop to run
+HTTP reads and writes through the same matrix and reproduction checks.
 Runs have local SQLite checkpoints; `skewguard resume RUN_ID` continues unfinished
 work using pinned commits. `skewguard report`
 validates and renders saved evidence without booting the application or Docker.
