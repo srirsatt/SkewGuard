@@ -91,6 +91,14 @@ def render_markdown(report: RunReport) -> str:
             "No old-code regression candidates were found in the initial checks."
         )
 
+    if context.scenario_attempts:
+        lines.extend(["", "### HTTP scenario generation", ""])
+        for index, attempt in enumerate(context.scenario_attempts, 1):
+            detail = escape_markdown(attempt.detail[:1000])
+            lines.append(f"{index}. {attempt.status.capitalize()} — {detail}")
+        if context.scenario_attempts[-1].status != "accepted":
+            lines.append("The matrix ran without a generated HTTP scenario.")
+
     additional = replay_only_candidates(verification)
     if additional:
         lines.extend(
@@ -141,10 +149,15 @@ def render_markdown(report: RunReport) -> str:
                 f"- Replay {attempt.number}: {escape_markdown(attempt.error or '')}"
             )
 
+    coverage = (
+        "ORM probes and baseline-qualified HTTP scenarios"
+        if any(cell.qualified_scenarios for cell in verification.initial_cells)
+        else "deterministic ORM probes only"
+    )
     lines.extend(
         [
             "",
-            "Coverage: deterministic ORM probes only. "
+            f"Coverage: {coverage}. "
             "Results apply to executed checks; "
             "they do not prove migration safety. Full outcomes and replay evidence are "
             "retained in the JSON report.",
