@@ -444,6 +444,14 @@
   with Pydantic and Django, and retry once with the actual checker feedback.
   Revisions run against isolated copies of the same seeded old database.
   Reports retain all decisions. A saved proposal can be qualified after resume.
+- Tested the initial GET seed prompt with local Ollama and disposable PostgreSQL.
+  With only the prompt and source evidence, the model returned product fields
+  without the Django model label. Supplying a JSON schema for `model` and
+  `fields` produced a row that appeared in the shop's GET response. In a
+  temporary view filtering for zero stock and a price below ten, the generated
+  row appeared after insertion. A control row with positive stock inserted
+  successfully but the GET still returned an empty list and HTTP 200.
+  These were standalone experiments. Seed generation in the CLI remains pending.
 
 ## Execution design
 
