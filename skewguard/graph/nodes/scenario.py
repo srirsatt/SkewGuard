@@ -12,6 +12,7 @@ from skewguard.exec.envs import backend_directory
 from skewguard.exec.qualification import qualify_scenario
 from skewguard.exec.scenarios import Scenario
 from skewguard.exec.types import ComparisonIssue
+from skewguard.graph.nodes.seed import should_start_seed
 from skewguard.graph.progress import ProgressEvent
 from skewguard.graph.runtime import RunResources, validate_resources
 from skewguard.graph.state import RunState
@@ -19,17 +20,27 @@ from skewguard.graph.state import RunState
 
 class ReplyUpdate(TypedDict):
     proposal_reply: str
+    scenario_pending: bool
 
 
 class QualificationUpdate(TypedDict, total=False):
+    scenario_pending: bool
     scenario_attempts: tuple[ScenarioAttempt, ...]
     config: RunConfig
 
 
-def after_analysis(state: RunState) -> Literal["propose_scenario", "execute_matrix"]:
+def after_analysis(
+    state: RunState,
+) -> Literal["propose_scenario", "propose_seed", "execute_matrix"]:
     if state.config.scenario_model:
         return "propose_scenario"
+    if should_start_seed(state):
+        return "propose_seed"
     return "execute_matrix"
+
+
+def after_proposal(state: RunState) -> Literal["propose_seed", "qualify_proposal"]:
+    return "propose_seed" if should_start_seed(state) else "qualify_proposal"
 
 
 def propose_scenario(state: RunState, runtime: Runtime[RunResources]) -> ReplyUpdate:
@@ -49,7 +60,7 @@ def propose_scenario(state: RunState, runtime: Runtime[RunResources]) -> ReplyUp
         previous=state.proposal_reply,
         feedback=state.scenario_attempts[-1].detail if state.scenario_attempts else "",
     )
-    return {"proposal_reply": reply}
+    return {"proposal_reply": reply, "scenario_pending": True}
 
 
 def check_baseline(
@@ -105,6 +116,7 @@ def qualify_proposal(
         else:
             attempt = check_baseline(state, resources, proposal.scenario)
     update: QualificationUpdate = {
+        "scenario_pending": False,
         "scenario_attempts": (*state.scenario_attempts, attempt)
     }
     if attempt.status == "accepted" and attempt.scenario is not None:
@@ -117,8 +129,8 @@ def qualify_proposal(
 def after_qualification(
     state: RunState,
 ) -> Literal["propose_scenario", "execute_matrix"]:
-    budget = min(2, state.config.max_llm_calls)
     rejected = state.scenario_attempts[-1].status == "rejected"
-    if rejected and len(state.scenario_attempts) < budget:
+    can_retry = len(state.scenario_attempts) < 2 and state.remaining_model_calls > 0
+    if rejected and can_retry:
         return "propose_scenario"
     return "execute_matrix"
