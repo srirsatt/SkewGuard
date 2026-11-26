@@ -109,3 +109,23 @@ def clone_database(config: RunConfig, server: DatabaseConnection, *, source: str
     return target
 
 
+@contextmanager
+def temporary_clone(
+    config: RunConfig, snapshot: DatabaseConnection
+) -> Generator[DatabaseConnection, None, None]:
+    """Run against a private copy of a snapshot and release it on exit."""
+    database = clone_database(config, snapshot, source=snapshot.dbname)
+    try:
+        yield database
+    finally:
+        admin = snapshot.model_copy(update={"dbname": "postgres"})
+        statement = sql.SQL("DROP DATABASE {}").format(sql.Identifier(database.dbname))
+        try:
+            with connect_database(config, admin, autocommit=True) as connection:
+                connection.execute(statement)
+        except psycopg.Error as error:
+            raise DatabaseSetupError(
+                f"could not release {database.dbname!r}"
+            ) from error
+
+
