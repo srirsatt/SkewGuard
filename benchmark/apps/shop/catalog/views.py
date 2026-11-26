@@ -11,8 +11,11 @@ from catalog.models import Product
 def products(request):
     if request.method == "POST":
         return create_product(request)
+    queryset = Product.objects.all()
+    if request.GET.get("out_of_stock") == "1":
+        queryset = queryset.filter(stock=0)
     return JsonResponse(
-        {"products": list(Product.objects.values("sku", "name", "price", "stock"))}
+        {"products": list(queryset.values("sku", "name", "price", "stock"))}
     )
 
 
