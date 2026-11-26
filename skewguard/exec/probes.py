@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import TypeAdapter
 
+from skewguard.agents.seed import SeedProposal
 from skewguard.config import RunConfig
 from skewguard.exec.db import DatabaseConnection
 from skewguard.exec.envs import (
@@ -36,10 +37,11 @@ def _run_worker(
     database: DatabaseConnection,
     *,
     settings_module: str,
-    operation: Literal["seed", "read", "write", "commit", "http"],
+    operation: Literal["seed", "insert_seed", "read", "write", "commit", "http"],
     fixture: str | None = None,
     model_labels: list[str] | None = None,
     scenario: Scenario | None = None,
+    proposal: SeedProposal | None = None,
 ) -> list[Outcome]:
     validate_environment(environment)
     backend = backend_directory(config, environment.checkout)
@@ -52,6 +54,8 @@ def _run_worker(
     )
     if scenario is not None:
         payload["scenario"] = scenario.model_dump(mode="json")
+    if proposal is not None:
+        payload["proposal"] = proposal.model_dump(mode="json")
     try:
         result = subprocess.run(
             [str(environment.python), "-I", str(_WORKER_PATH), str(backend)],
@@ -100,6 +104,28 @@ def seed_database(
         operation="seed",
         fixture=fixture,
     )
+
+
+def insert_seed_proposal(
+    config: RunConfig,
+    base: PythonEnvironment,
+    database: DatabaseConnection,
+    *,
+    settings_module: str,
+    proposal: SeedProposal,
+) -> Outcome:
+    """Insert one proposed row into the supplied sandbox and return Django's result."""
+    results = _run_worker(
+        config, base, database, settings_module=settings_module,
+        operation="insert_seed", proposal=proposal,
+    )
+    if (
+        len(results) != 1
+        or results[0].scenario_id != f"seed:{proposal.model}"
+        or results[0].status not in {"ok", "exception"}
+    ):
+        raise ProbeExecutionError("seed worker returned missing or mismatched evidence")
+    return results[0]
 
 
 def run_http_get(
