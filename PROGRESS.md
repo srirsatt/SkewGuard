@@ -423,6 +423,10 @@
 - The scenario agent's output schema accepts one HTTP scenario or an explicit
   skip and requires a reason for either. The initial prompt grounds proposals
   in old-release routes and view code.
+- A one-off local prompt run with `qwen2.5-coder:7b` on the shop price rename
+  produced a valid `POST /products/` proposal. The seeded old release returned
+  HTTP 201 with `price`. Qualification rejected the proposed comparison against
+  `amount`, which was absent from the response. This ran outside the agent graph.
 
 ## Execution design
 
