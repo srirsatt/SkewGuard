@@ -452,6 +452,9 @@
   row appeared after insertion. A control row with positive stock inserted
   successfully but the GET still returned an empty list and HTTP 200.
   These were standalone experiments. Seed generation in the CLI remains pending.
+- `SeedProposal` now requires a Django model label and a JSON field map. A
+  schema check confirmed that a shop product round-trips through JSON and
+  that an unqualified model name, missing fields, and extra top-level keys fail.
 
 ## Execution design
 
