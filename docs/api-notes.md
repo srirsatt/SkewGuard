@@ -1,29 +1,31 @@
 # Agent and orchestration API notes
 
-The dependency baseline was checked on 2026-11-16 against PyPI metadata and
-installed Python signatures. Checkpoint/streaming APIs and filelock were checked
-again on 2026-11-18. The deterministic graph, SQLite recovery, and typed phase
-progress are implemented. Agent generation, tracing integration, and MCP endpoints
-remain planned. Setup makes no model calls.
+The agent, graph, tracing, Ollama adapter and official MCP SDK versions were
+checked against PyPI on 2026-11-26. The CLI uses SQLite checkpoints, typed
+progress events and opt-in HTTP scenario generation through local Ollama.
 
 ## Versions
 
 | Distribution | Pinned stable version | Source |
 | --- | --- | --- |
-| `langgraph` | `1.2.22` | [PyPI](https://pypi.org/project/langgraph/1.2.22/) |
-| `langchain` | `1.5.0` | [PyPI](https://pypi.org/project/langchain/1.5.0/) |
-| `langchain-core` | `1.8.1` | [PyPI](https://pypi.org/project/langchain-core/1.8.1/) |
-| `langsmith` | `0.14.17` | [PyPI](https://pypi.org/project/langsmith/0.14.17/) |
+| `langgraph` | `1.2.24` | [PyPI](https://pypi.org/project/langgraph/1.2.24/) |
+| `langchain` | `1.5.2` | [PyPI](https://pypi.org/project/langchain/1.5.2/) |
+| `langchain-core` | `1.8.5` | [PyPI](https://pypi.org/project/langchain-core/1.8.5/) |
+| `langsmith` | `0.16.2` | [PyPI](https://pypi.org/project/langsmith/0.16.2/) |
 | `langgraph-checkpoint` | `4.3.2` | [PyPI](https://pypi.org/project/langgraph-checkpoint/4.3.2/) |
 | `langgraph-checkpoint-sqlite` | `3.1.3` | [PyPI](https://pypi.org/project/langgraph-checkpoint-sqlite/3.1.3/) |
 | `mcp` (official SDK) | `2.3.0` | [PyPI](https://pypi.org/project/mcp/2.3.0/) |
 | `filelock` | `4.2.12` | [PyPI](https://pypi.org/project/filelock/4.2.12/) |
+| `langchain-ollama` | `1.2.0` | [PyPI](https://pypi.org/project/langchain-ollama/1.2.0/) |
 
-Provider selection is pending. The researched stable adapters are
-[`langchain-openai==1.8.0`](https://pypi.org/project/langchain-openai/1.8.0/)
-and [`langchain-anthropic==1.7.10`](https://pypi.org/project/langchain-anthropic/1.7.10/).
-Pin the selected adapter before writing provider integration code. No model ID
-is selected yet; model names and generation/triage budgets will be configurable.
+The scenario node constructs a local chat model with `init_chat_model` and
+`model_provider="ollama"`. A tool-free `create_agent` uses JSON mode and
+`ModelCallLimitMiddleware(run_limit=1)`. The outer graph parses each answer
+with `ScenarioProposal.model_validate_json`, executes the proposed request on
+A0D0 and owns the single repair turn. This keeps model calls visible across
+graph checkpoints, including attempts that produce invalid JSON.
+[Ollama integration](https://docs.langchain.com/oss/python/integrations/chat/ollama)
+[Model call limits](https://docs.langchain.com/oss/python/langchain/middleware/built-in)
 
 ## Graph construction and state
 
@@ -94,7 +96,7 @@ The current CLI uses v2 `custom`, `updates`, and `values` stream modes. Nodes em
 scripted start events through `runtime.stream_writer`; completions come from
 updates. Only approved phase labels are printed. Full values stay internal and
 the final state is schema-validated. The outer invocation has a finite step cap;
-agent-specific retry and model-call budgets remain part of agent implementation.
+the scenario branch adds a per-run model-call cap and one possible repair.
 
 ## Individual agents, models, and structured results
 
@@ -107,8 +109,8 @@ defaults are not an execution-based verdict mechanism.
 [middleware](https://docs.langchain.com/oss/python/langchain/middleware/overview)
 
 The inner `create_agent` state uses its supported TypedDict-based `AgentState`;
-the outer verifier's Pydantic schema is separate. Pass Pydantic proposal models
-through `response_format`. Read the validated `structured_response` from the
+the outer verifier's Pydantic schema is separate. For adapters with native
+structured output, pass Pydantic proposal models through `response_format`. Read the validated `structured_response` from the
 agent result. `ProviderStrategy` and `ToolStrategy` live in
 `langchain.agents.structured_output`; select capabilities deliberately and bound
 validation retries. Database/scenario execution must validate useful behavior.
