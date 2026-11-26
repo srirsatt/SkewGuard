@@ -5,7 +5,7 @@
 | Milestone | Status |
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
-| 2: graph and generation | Three-node graph, SQLite recovery, CLI progress, HTTP matrix execution, scenario proposal schema, and initial system prompt implemented. Model invocation and retry routing remain. |
+| 2: graph and generation | HTTP scenario generation, one feedback-driven retry on A0D0, matrix execution, SQLite resume, and CLI progress implemented. Seed generation remains. |
 | 3: comparison, triage, reports, CLI | Deterministic verification, reports, and CLI implemented; triage remains |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
@@ -280,7 +280,7 @@
   checkpoint, and official MCP SDK dependencies are verified and pinned.
   `docs/api-notes.md` records the APIs, state/runtime separation, typed v2
   streaming, structured agent output, middleware, checkpointing, and MCP v2.
-  Provider adapters are researched; selection and installation remain pending.
+  The local Ollama adapter is selected for HTTP scenario generation.
 - `.env.example` documents provider and LangSmith key names without credentials.
   Dependency installation and API-signature inspection made no model calls or
   trace uploads. The dependency baseline passes 357 existing tests with tracing
@@ -440,6 +440,11 @@
   `amount` with `price`, and the POST qualified with HTTP 201 on a fresh
   baseline clone. Its explanation still referred to the post-migration field.
 
+- The CLI can generate one HTTP check using local Ollama, validate the result
+  with Pydantic and Django, and retry once with the actual checker feedback.
+  Revisions run against isolated copies of the same seeded old database.
+  Reports retain all decisions. A saved proposal can be qualified after resume.
+
 ## Execution design
 
 - Clone PostgreSQL template databases so each cell and reproduction attempt
@@ -452,12 +457,11 @@
 ## Next
 
 - Add explicit ordering probes.
-- Integrate static-analysis context with scenario/seed planning and reports.
+- Extend static-analysis context to seed planning and triage.
 - Keep worktree, environment, and container lifetimes in the session manager;
   pass fresh runtime resources to resumed nodes.
 - Configure CI and pre-commit checks.
-- Select and pin the model-provider adapter before implementing model calls.
-- Add bounded scenario/seed generation retries and persistent model-call budgets.
+- Add seed generation and validation, then share the model-call budget across agents.
 
 ## Open questions
 
