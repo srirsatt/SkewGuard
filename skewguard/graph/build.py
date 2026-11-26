@@ -11,6 +11,12 @@ from langgraph.graph.state import (  # pyright: ignore[reportMissingTypeStubs]
 
 from skewguard.graph.nodes.execute_matrix import execute_matrix
 from skewguard.graph.nodes.report import report
+from skewguard.graph.nodes.scenario import (
+    after_analysis,
+    after_qualification,
+    propose_scenario,
+    qualify_proposal,
+)
 from skewguard.graph.nodes.static_analyze import static_analyze
 from skewguard.graph.runtime import RunResources
 from skewguard.graph.state import RunState
@@ -26,7 +32,11 @@ def build_graph(checkpointer: BaseCheckpointSaver[str] | None = None) -> Verific
     builder.add_node("report", report)
 
     builder.add_edge(START, "static_analyze")
-    builder.add_edge("static_analyze", "execute_matrix")
+    builder.add_node("propose_scenario", propose_scenario)
+    builder.add_node("qualify_proposal", qualify_proposal)
+    builder.add_conditional_edges("static_analyze", after_analysis)
+    builder.add_edge("propose_scenario", "qualify_proposal")
+    builder.add_conditional_edges("qualify_proposal", after_qualification)
     builder.add_edge("execute_matrix", "report")
     builder.add_edge("report", END)
 
