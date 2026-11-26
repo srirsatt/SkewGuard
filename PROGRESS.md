@@ -455,6 +455,12 @@
 - `SeedProposal` now requires a Django model label and a JSON field map. A
   schema check confirmed that a shop product round-trips through JSON and
   that an unqualified model name, missing fields, and extra top-level keys fail.
+- The executor can apply one `SeedProposal` in the old checkout. Django
+  validates the fields and commits the insert in a transaction. PostgreSQL
+  integration tests read the new SKU through `GET /products/` on a baseline
+  clone. The shop's `?out_of_stock=1` filter shows the zero-stock row and
+  omits the in-stock control. Separate checks cover duplicate SKUs and a
+  field name present only in the head release.
 
 ## Execution design
 
@@ -472,7 +478,8 @@
 - Keep worktree, environment, and container lifetimes in the session manager;
   pass fresh runtime resources to resumed nodes.
 - Configure CI and pre-commit checks.
-- Add seed generation and validation, then share the model-call budget across agents.
+- Connect seed generation to the tested insert operation, return validation
+  feedback on failed proposals, and share the model-call budget across agents.
 
 ## Open questions
 
