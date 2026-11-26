@@ -4,6 +4,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from skewguard.exec.scenarios import Scenario
+
 
 class RunConfig(BaseModel):
     """Describe one run before preparing worktrees or starting a database.
@@ -28,6 +30,14 @@ class RunConfig(BaseModel):
     backend_path: Path = Path(".")
     timeout_seconds: int = Field(default=60, gt=0, strict=True)
     probe_row_limit: int = Field(default=10, gt=0, strict=True)
+    scenarios: tuple[Scenario, ...] = ()
+
+    @field_validator("scenarios")
+    @classmethod
+    def unique_scenario_ids(cls, value: tuple[Scenario, ...]) -> tuple[Scenario, ...]:
+        if len({scenario.scenario_id for scenario in value}) != len(value):
+            raise ValueError("HTTP scenario IDs must be unique")
+        return value
 
     @field_validator("repo_path")
     @classmethod
