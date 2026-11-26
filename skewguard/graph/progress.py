@@ -17,7 +17,8 @@ if TYPE_CHECKING:
     from skewguard.graph.build import VerificationGraph
 
 type NodeName = Literal[
-    "static_analyze", "propose_scenario", "qualify_proposal", "execute_matrix", "report"
+    "static_analyze", "propose_scenario", "qualify_proposal",
+    "propose_seed", "validate_seed", "execute_matrix", "report"
 ]
 type ProgressCallback = Callable[[str], None]
 
@@ -25,6 +26,8 @@ NODE_LABELS: dict[str, str] = {
     "static_analyze": "static analysis",
     "execute_matrix": "matrix and reproduction checks",
     "propose_scenario": "HTTP scenario generation",
+    "propose_seed": "seed row generation",
+    "validate_seed": "seed row validation on A0D0",
     "qualify_proposal": "HTTP scenario qualification on A0D0",
     "report": "report generation",
 }
