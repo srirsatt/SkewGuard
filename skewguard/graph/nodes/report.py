@@ -28,5 +28,6 @@ def report(state: RunState, runtime: Runtime[RunResources]) -> ReportUpdate:
         state.verification,
         settings_module=state.settings_module,
         seed_fixture=state.seed_fixture,
+        scenario_attempts=state.scenario_attempts,
     )
     return {"report": result}
