@@ -241,9 +241,11 @@ comparison preserves distinctions such as `false` versus `0`.
 `compare_matrix` requires exactly one record for each cell. It retains failed
 baselines, missing/unmatched checks, unavailable inputs, and new-code execution
 failures as separate issues. It checks A1D1 for execution health rather than
-requiring new-code responses to equal old-code responses. The current ORM-only
-rollback setup requires successful `orm:<label>:commit` records before comparing
-A0D1w. Empty baseline/head cells are coverage issues.
+requiring new-code responses to equal old-code responses. Rollback setup
+requires successful `orm:<label>:commit` records. When the plan includes
+HTTP writes, the setup also checks their order and status. HTTP rollback
+reads use the old-release post-write control as their reference. Empty
+baseline/head cells are coverage issues.
 
 `CandidateDivergence` retains raw baseline/observed outcomes and the comparison
 policy. It represents a candidate awaiting reproduction, not a verified verdict.
@@ -744,10 +746,33 @@ uv run python examples/shop_http_get.py "$demo_root/shop"
 
 This example migrates and seeds a disposable database, sends an anonymous
 `GET /products/` through Django's test client, and prints the HTTP status and
-products JSON. The CLI matrix currently runs ORM probes. The HTTP executor is
-available separately through `run_http_get`. It preserves redirect status
+products JSON. The HTTP executor preserves redirect status
 without following redirects, captures view exceptions, and records a body for
 buffered JSON responses. A streaming response is an unsupported execution.
+
+To run the shop's product GET and POST alongside the ORM probes, use the
+scenario file from this repository and the demo checkout created above.
+
+```bash
+uv run skewguard run --repo "$demo_root/shop" --base base --head safe \
+  --settings shop.settings --seed products --scenarios examples/shop_http_scenarios.json \
+  --checkpoint "$demo_root/checkpoints.sqlite" --json "$demo_root/http.json"
+```
+
+The file contains a JSON array of requests with unique scenario IDs. SkewGuard
+first executes each request on a private copy of the seeded old database.
+Qualified requests run independently in the deploy-window and new-release
+cells. For rollback, the new release executes the writes in file order on a
+shared copy. The old release then executes the reads against that data.
+An old-release control executes equivalent writes before its reads so that
+an expected new row can appear on both sides of a response comparison.
+Rejected proposals and incomplete rollback setup appear as coverage issues.
+
+With the supplied requests, the demo's `safe` release returns HTTP 400 for
+the product creation. Its nullable `notes` field still disallows a blank value
+during the view's model validation. Expect exit code 3 with a head-code failure
+and incomplete rollback setup. Using `--head base` exercises the same GET and
+POST with a successful write on both releases.
 
 ## Development checks
 
