@@ -6,7 +6,7 @@
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
 | 2: graph and generation | HTTP scenario generation, one feedback-driven retry on A0D0, matrix execution, SQLite resume, and CLI progress implemented. Seed generation, insert validation, bounded retries, and shared call budgets are implemented. |
-| 3: comparison, triage, reports, CLI | Deterministic verification, reports, CLI, and standalone triage schema implemented. Triage graph integration and citation verification remain. |
+| 3: comparison, triage, reports, CLI | Deterministic verification, reports, CLI, and standalone triage parsing with old-code citation checks implemented. Triage graph integration and migration citation checks remain. |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
 | 6: optional fixer and release documentation | Not started |
@@ -476,8 +476,11 @@
 - Replaying the confirmed crash with `old_code` empty tested the prompt's
   missing-source instruction. Both the original instruction and its revision
   naming `old_code` produced `catalog/models.py:10` and `status_change`.
-  The category check rejected the reply. A citation check against the supplied
-  excerpt is still needed for replies that get the category right.
+  The category check rejected the reply.
+- The triage parser now checks each non-null old-code citation against the
+  exact file and line supplied to the model. With an empty excerpt, only a null
+  citation passes. Tests cover a correctly classified crash with an invented
+  citation and a line number supplied for a different file.
 
 ## Execution design
 
