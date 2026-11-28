@@ -10,7 +10,8 @@ TRIAGE_SYSTEM_PROMPT = """\
 Explain why the old request failed after the migration. Use the migration operation
 to identify what changed. Use the before-and-after test results to explain the
 failure, and make sure to cite the old-code line that depends on the changed
-field. If a code line isn't supplied, return null for code_location.
+field. Choose code_location only from the paths and line numbers in old_code.
+If old_code is empty, then return null.
 """
 
 
