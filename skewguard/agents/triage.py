@@ -1,5 +1,6 @@
 """Structured explanations for reproduced migration failures."""
 
+from collections.abc import Mapping
 from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -49,8 +50,14 @@ class TriageExplanation(BaseModel):
     )
 
     @classmethod
-    def from_finding(cls, reply: str, finding: ReproductionDecision) -> Self:
-        """Check the model's category against the reproduced failure."""
+    def from_finding(
+        cls, reply: str, finding: ReproductionDecision, *,
+        old_code: Mapping[str, Mapping[str, str]],
+    ) -> Self:
+        """Check the category and citation against the evidence sent to the model.
+
+        old_code maps each path to its excerpt, keyed by stringified line numbers.
+        """
         if finding.status != "confirmed":
             raise ValueError("triage requires a confirmed failure")
         result = cls.model_validate_json(reply)
@@ -60,4 +67,11 @@ class TriageExplanation(BaseModel):
                 f"Model returned {result.category.value} but execution recorded "
                 f"{expected.value}"
             )
+        citation = result.code_location
+        if citation is not None:
+            lines = old_code.get(citation.path)
+            if lines is None or str(citation.line) not in lines:
+                raise ValueError(
+                    f"Citation {citation.path}:{citation.line} is absent from old_code"
+                )
         return result
