@@ -9,6 +9,8 @@ from skewguard.agents.triage import TriageExplanation
 from skewguard.exec.types import DivergenceCategory
 from skewguard.report.json_report import RunReport
 
+OLD_CODE = {"catalog/views.py": {"18": 'queryset.values("price")'}}
+
 
 def explanation(**changes: object) -> TriageExplanation:
     return TriageExplanation.model_validate({
@@ -55,10 +57,40 @@ def test_model_cannot_reclassify_a_confirmed_crash(
     report_factory: Callable[[str], RunReport],
 ) -> None:
     finding = report_factory("breaking").verification.decisions[0]
-    assert TriageExplanation.from_finding(explanation().model_dump_json(), finding)
+    assert TriageExplanation.from_finding(
+        explanation().model_dump_json(), finding, old_code=OLD_CODE
+    )
     reply = explanation(category="body_change", confidence=0.95).model_dump_json()
     with pytest.raises(ValueError, match="execution recorded crash"):
-        TriageExplanation.from_finding(reply, finding)
+        TriageExplanation.from_finding(reply, finding, old_code=OLD_CODE)
+
+
+@pytest.mark.parametrize("old_code", [
+    {},
+    {"catalog/views.py": {"10": "return response"}},
+    {
+        "catalog/models.py": {"11": "class Product:"},
+        "catalog/views.py": {"10": "return response"},
+    },
+])
+def test_correct_category_cannot_rescue_an_unsupplied_citation(
+    report_factory: Callable[[str], RunReport], old_code: dict[str, dict[str, str]],
+) -> None:
+    finding = report_factory("breaking").verification.decisions[0]
+    reply = explanation(code_location={"path": "catalog/models.py", "line": 10})
+    with pytest.raises(ValueError, match=r"catalog/models\.py:10"):
+        TriageExplanation.from_finding(
+            reply.model_dump_json(), finding, old_code=old_code
+        )
+
+
+def test_empty_excerpt_accepts_a_null_citation(
+    report_factory: Callable[[str], RunReport],
+) -> None:
+    finding = report_factory("breaking").verification.decisions[0]
+    reply = explanation(code_location=None).model_dump_json()
+    parsed = TriageExplanation.from_finding(reply, finding, old_code={})
+    assert parsed.code_location is None
 
 
 def test_flaky_failure_cannot_be_triaged(
@@ -66,4 +98,6 @@ def test_flaky_failure_cannot_be_triaged(
 ) -> None:
     finding = report_factory("flaky").verification.decisions[0]
     with pytest.raises(ValueError, match="requires a confirmed failure"):
-        TriageExplanation.from_finding(explanation().model_dump_json(), finding)
+        TriageExplanation.from_finding(
+            explanation().model_dump_json(), finding, old_code={}
+        )
