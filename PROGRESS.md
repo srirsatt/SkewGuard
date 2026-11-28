@@ -473,6 +473,11 @@
   local prompt trial on the shop rename, the model identified `RenameField` but
   described a body change for a database crash. Its citation pointed one line
   above the query that selected `price`.
+- Replaying the confirmed crash with `old_code` empty tested the prompt's
+  missing-source instruction. Both the original instruction and its revision
+  naming `old_code` produced `catalog/models.py:10` and `status_change`.
+  The category check rejected the reply. A citation check against the supplied
+  excerpt is still needed for replies that get the category right.
 
 ## Execution design
 
