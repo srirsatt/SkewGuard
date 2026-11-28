@@ -6,7 +6,7 @@
 | --- | --- |
 | 1: execution foundation | In progress: four-cell ORM execution and normalization implemented; ordering and CI remain |
 | 2: graph and generation | HTTP scenario generation, one feedback-driven retry on A0D0, matrix execution, SQLite resume, and CLI progress implemented. Seed generation, insert validation, bounded retries, and shared call budgets are implemented. |
-| 3: comparison, triage, reports, CLI | Deterministic verification, reports, and CLI implemented; triage remains |
+| 3: comparison, triage, reports, CLI | Deterministic verification, reports, CLI, and standalone triage schema implemented. Triage graph integration and citation verification remain. |
 | 4: benchmark and evaluation | Not started |
 | 5: MCP and GitHub Action | Not started |
 | 6: optional fixer and release documentation | Not started |
@@ -467,6 +467,12 @@
   proposal is checkpointed and applied after fixture loading in each matrix and
   replay. A live shop run repaired a malformed reply and returned the inserted
   SKU in all three baseline reads.
+- Standalone triage explanations carry a migration operation and path, an optional
+  old-code citation, the recorded divergence category, an explanation, and model
+  confidence. The parser checks the category against a confirmed finding. In a
+  local prompt trial on the shop rename, the model identified `RenameField` but
+  described a body change for a database crash. Its citation pointed one line
+  above the query that selected `price`.
 
 ## Execution design
 
